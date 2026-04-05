@@ -3,6 +3,9 @@ import SwiftUI
 struct SettingsView: View {
     @AppStorage("nightVisionEnabled") private var nightVisionEnabled = false
     @AppStorage("highlightCurrentStep") private var highlightCurrentStep = true
+    @AppStorage("autoStartTimers") private var autoStartTimers = true
+    @AppStorage("autoAdvanceOnTimerEnd") private var autoAdvanceOnTimerEnd = false
+    @AppStorage("progressiveDisclosure") private var progressiveDisclosure = true
     @State private var selectedProvider: LLMProvider = .appleIntelligence
     @State private var apiKeyInput: String = ""
     @State private var savedProviders: Set<LLMProvider> = []
@@ -27,6 +30,44 @@ struct SettingsView: View {
                 Text("Display")
             } footer: {
                 Text("Night Vision provides a red-on-black display for low-light environments. Highlight Current Step adds a visual background to the active step during execution.")
+            }
+
+            // MARK: Execution
+
+            Section {
+                Toggle(isOn: $autoStartTimers) {
+                    Label("Auto-Start Timers", systemImage: "timer")
+                }
+
+                Toggle(isOn: $autoAdvanceOnTimerEnd) {
+                    Label("Auto-Advance After Timer", systemImage: "forward.fill")
+                }
+
+                Toggle(isOn: $progressiveDisclosure) {
+                    Label("Progressive Disclosure", systemImage: "eye.slash")
+                }
+            } header: {
+                Text("Execution")
+            } footer: {
+                Text("Auto-Start begins timers when a timed step becomes current. Auto-Advance moves to the next step when a timer completes. Progressive Disclosure shows only the title for upcoming steps.")
+            }
+
+            // MARK: Organization
+
+            Section {
+                NavigationLink {
+                    CategoryManagerView()
+                } label: {
+                    Label("Categories", systemImage: "square.grid.2x2")
+                }
+
+                NavigationLink {
+                    FolderManagerView()
+                } label: {
+                    Label("Folders", systemImage: "folder")
+                }
+            } header: {
+                Text("Organization")
             }
 
             // MARK: Provider Selection

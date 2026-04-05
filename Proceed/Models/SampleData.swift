@@ -5,6 +5,8 @@ struct SampleDataGenerator {
 
     @MainActor
     static func populateIfNeeded(context: ModelContext) {
+        seedDefaultCategories(context: context)
+
         let descriptor = FetchDescriptor<Checklist>()
         let count = (try? context.fetchCount(descriptor)) ?? 0
         guard count == 0 else { return }
@@ -17,10 +19,36 @@ struct SampleDataGenerator {
         createPreSpray(context: context)
     }
 
+    // MARK: - Default Categories
+
+    private static func seedDefaultCategories(context: ModelContext) {
+        let descriptor = FetchDescriptor<ProcedureCategory>()
+        let count = (try? context.fetchCount(descriptor)) ?? 0
+        guard count == 0 else { return }
+
+        let defaults: [(String, String, Int)] = [
+            ("Aviation", "airplane", 0),
+            ("Agriculture", "leaf.fill", 1),
+            ("Vehicle Maintenance", "car.fill", 2),
+            ("Home Repair", "hammer.fill", 3),
+            ("First Aid", "cross.case.fill", 4),
+            ("Custom", "folder.fill", 5),
+        ]
+        for (name, image, order) in defaults {
+            context.insert(ProcedureCategory(name: name, systemImage: image, sortOrder: order, isDefault: true))
+        }
+    }
+
+    private static func fetchCategory(named name: String, context: ModelContext) -> ProcedureCategory? {
+        let descriptor = FetchDescriptor<ProcedureCategory>(predicate: #Predicate { $0.name == name })
+        return try? context.fetch(descriptor).first
+    }
+
     // MARK: - Aviation — Engine Fire During Takeoff (Emergency)
 
     private static func createEngineFire(context: ModelContext) {
-        let cl = Checklist(title: "Engine Fire During Takeoff", category: .aviation, versionNumber: "v2.1", isEmergency: true)
+        let cl = Checklist(title: "Engine Fire During Takeoff", versionNumber: "v2.1", isEmergency: true)
+        cl.category = fetchCategory(named: "Aviation", context: context)
 
         let s0 = ChecklistStep(stepType: .warning, text: "ENGINE FIRE detected during takeoff roll", orderIndex: 0)
         s0.requiresAcknowledgment = true
@@ -51,9 +79,12 @@ struct SampleDataGenerator {
     // MARK: - Aviation — Pre-Flight Walkaround
 
     private static func createPreFlight(context: ModelContext) {
-        let cl = Checklist(title: "Pre-Flight Walkaround", category: .aviation, versionNumber: "v1.3")
+        let cl = Checklist(title: "Pre-Flight Walkaround", versionNumber: "v1.3")
+        cl.category = fetchCategory(named: "Aviation", context: context)
         // Mark as outdated for demo — reviewed 14 months ago
         cl.lastReviewedDate = Calendar.current.date(byAdding: .month, value: -14, to: Date()) ?? Date()
+        cl.preparationNotes = "Ensure aircraft is parked on a level surface. Have the aircraft logbook available for reference."
+        cl.requiredEquipment = ["Fuel tester", "Tire pressure gauge", "Flashlight", "Aircraft POH/checklist"]
 
         let steps = [
             ChecklistStep(stepType: .action, text: "Nose section — pitot cover removed, no visible damage", orderIndex: 0),
@@ -72,7 +103,9 @@ struct SampleDataGenerator {
     // MARK: - First Aid — Adult CPR (Emergency)
 
     private static func createAdultCPR(context: ModelContext) {
-        let cl = Checklist(title: "Adult CPR", category: .firstAid, versionNumber: "v3.0", isEmergency: true)
+        let cl = Checklist(title: "Adult CPR", versionNumber: "v3.0", isEmergency: true)
+        cl.category = fetchCategory(named: "First Aid", context: context)
+        cl.requiredEquipment = ["CPR face shield or pocket mask", "AED (if available)", "Disposable gloves"]
 
         let s0 = ChecklistStep(stepType: .warning, text: "Ensure scene is SAFE before approaching", orderIndex: 0)
         s0.requiresAcknowledgment = true
@@ -108,7 +141,10 @@ struct SampleDataGenerator {
     // MARK: - Vehicle Maintenance — Oil Change
 
     private static func createOilChange(context: ModelContext) {
-        let cl = Checklist(title: "Oil Change Procedure", category: .vehicleMaintenance, versionNumber: "v1.0")
+        let cl = Checklist(title: "Oil Change Procedure", versionNumber: "v1.0")
+        cl.category = fetchCategory(named: "Vehicle Maintenance", context: context)
+        cl.preparationNotes = "Ensure engine has cooled for at least 30 minutes. Work on a flat, level surface."
+        cl.requiredEquipment = ["Socket wrench set", "Oil drain pan", "New oil filter", "4-5 quarts motor oil", "Funnel", "Jack and jack stands"]
 
         let s0 = ChecklistStep(stepType: .caution, text: "Allow engine to cool for at least 30 minutes", orderIndex: 0)
         s0.requiresAcknowledgment = true
@@ -136,7 +172,8 @@ struct SampleDataGenerator {
     // MARK: - Home Repair — Circuit Breaker Reset
 
     private static func createCircuitBreaker(context: ModelContext) {
-        let cl = Checklist(title: "Circuit Breaker Reset", category: .homeRepair, versionNumber: "v1.0")
+        let cl = Checklist(title: "Circuit Breaker Reset", versionNumber: "v1.0")
+        cl.category = fetchCategory(named: "Home Repair", context: context)
 
         let s0 = ChecklistStep(stepType: .warning, text: "NEVER touch the electrical panel with wet hands — risk of electrocution", orderIndex: 0)
         s0.requiresAcknowledgment = true
@@ -167,7 +204,9 @@ struct SampleDataGenerator {
     // MARK: - Agriculture — Pre-Spray Checklist
 
     private static func createPreSpray(context: ModelContext) {
-        let cl = Checklist(title: "Crop Duster Pre-Spray", category: .agriculture, versionNumber: "v1.2")
+        let cl = Checklist(title: "Crop Duster Pre-Spray", versionNumber: "v1.2")
+        cl.category = fetchCategory(named: "Agriculture", context: context)
+        cl.requiredEquipment = ["PPE (gloves, respirator, goggles)", "Chemical product labels", "Calibration kit"]
 
         let s0 = ChecklistStep(stepType: .caution, text: "Wear full PPE before handling any chemical product", orderIndex: 0)
         s0.requiresAcknowledgment = true

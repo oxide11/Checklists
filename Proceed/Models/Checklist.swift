@@ -5,7 +5,6 @@ import SwiftData
 final class Checklist {
     var id: UUID = UUID()
     var title: String = ""
-    var category: ChecklistCategory = ChecklistCategory.custom
     var versionNumber: String = "v1.0"
     var lastUpdatedDate: Date = Date()
     var lastReviewedDate: Date = Date()
@@ -13,8 +12,36 @@ final class Checklist {
     var sortOrder: Int = 0
     var isEmergency: Bool = false
 
+    // Relationships
+    @Relationship(inverse: \ProcedureCategory.checklists)
+    var category: ProcedureCategory? = nil
+    var folder: Folder? = nil
+
     @Relationship(deleteRule: .cascade, inverse: \ChecklistStep.checklist)
     var steps: [ChecklistStep]? = []
+
+    @Relationship
+    var requiredEquipmentItems: [Equipment]? = []
+
+    // Preparation
+    var preparationNotes: String? = nil
+    var requiredEquipmentData: Data? = nil
+
+    var requiredEquipment: [String] {
+        get {
+            guard let data = requiredEquipmentData else { return [] }
+            return (try? JSONDecoder().decode([String].self, from: data)) ?? []
+        }
+        set {
+            requiredEquipmentData = try? JSONEncoder().encode(newValue)
+        }
+    }
+
+    var hasPreparation: Bool {
+        (preparationNotes != nil && !preparationNotes!.isEmpty) ||
+        !requiredEquipment.isEmpty ||
+        !(requiredEquipmentItems ?? []).isEmpty
+    }
 
     /// Returns true if the procedure hasn't been updated or reviewed in over 12 months.
     var isOutdated: Bool {
@@ -31,13 +58,11 @@ final class Checklist {
 
     init(
         title: String = "",
-        category: ChecklistCategory = .custom,
         versionNumber: String = "v1.0",
         isEmergency: Bool = false
     ) {
         self.id = UUID()
         self.title = title
-        self.category = category
         self.versionNumber = versionNumber
         self.isEmergency = isEmergency
         self.lastUpdatedDate = Date()

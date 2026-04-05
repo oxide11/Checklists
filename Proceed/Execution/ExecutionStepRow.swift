@@ -6,6 +6,7 @@ struct ExecutionStepRow: View {
     let index: Int
     let state: StepState
     let highlightCurrent: Bool
+    let progressiveDisclosure: Bool
     let timerRemaining: Double?
     let timerRunning: Bool
     let onComplete: () -> Void
@@ -97,7 +98,12 @@ struct ExecutionStepRow: View {
 
     @ViewBuilder
     private var stepContent: some View {
-        if step.stepType == .decision && state == .completed {
+        if progressiveDisclosure && state == .upcoming {
+            Text(step.text)
+                .font(.body)
+                .foregroundStyle(.tertiary)
+                .lineLimit(1)
+        } else if step.stepType == .decision && state == .completed {
             // Completed decision — show the text only
             Text(step.question ?? step.text)
                 .font(.body)

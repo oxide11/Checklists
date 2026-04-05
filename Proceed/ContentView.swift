@@ -3,6 +3,7 @@ import SwiftData
 
 struct ContentView: View {
     @Query(sort: \Checklist.title) private var checklists: [Checklist]
+    @Query(sort: \ProcedureCategory.sortOrder) private var categories: [ProcedureCategory]
     @Environment(\.modelContext) private var modelContext
     @State private var searchText = ""
     @State private var showSettings = false
@@ -19,11 +20,22 @@ struct ContentView: View {
         filteredChecklists.filter(\.isEmergency)
     }
 
-    private var categorizedChecklists: [(ChecklistCategory, [Checklist])] {
+    private var categorizedChecklists: [(ProcedureCategory, [Checklist])] {
         let nonEmergency = filteredChecklists.filter { !$0.isEmergency }
-        return Dictionary(grouping: nonEmergency, by: \.category)
-            .sorted { $0.key.displayName < $1.key.displayName }
-            .map { ($0.key, $0.value) }
+        let grouped = Dictionary(grouping: nonEmergency) { $0.category?.id }
+
+        var result: [(ProcedureCategory, [Checklist])] = []
+        for cat in categories {
+            if let lists = grouped[cat.id], !lists.isEmpty {
+                result.append((cat, lists.sorted { $0.title < $1.title }))
+            }
+        }
+        // Uncategorized checklists
+        if let uncategorized = grouped[nil], !uncategorized.isEmpty {
+            let fallback = ProcedureCategory(name: "Uncategorized", systemImage: "questionmark.folder", sortOrder: 999)
+            result.append((fallback, uncategorized.sorted { $0.title < $1.title }))
+        }
+        return result
     }
 
     var body: some View {
@@ -45,7 +57,7 @@ struct ContentView: View {
                     }
                 }
 
-                ForEach(categorizedChecklists, id: \.0) { category, lists in
+                ForEach(categorizedChecklists, id: \.0.id) { category, lists in
                     Section {
                         ForEach(lists) { checklist in
                             NavigationLink {
@@ -55,8 +67,19 @@ struct ContentView: View {
                             }
                         }
                     } header: {
-                        Label(category.displayName, systemImage: category.systemImage)
+                        Label(category.name, systemImage: category.systemImage)
                     }
+                }
+
+                // Equipment inventory link
+                Section {
+                    NavigationLink {
+                        EquipmentInventoryView()
+                    } label: {
+                        Label("Equipment Inventory", systemImage: "wrench.and.screwdriver")
+                    }
+                } header: {
+                    Text("Inventory")
                 }
             }
             .listStyle(.sidebar)
@@ -126,7 +149,7 @@ struct ChecklistRow: View {
         HStack(spacing: 12) {
             Image(systemName: checklist.isEmergency
                   ? "exclamationmark.triangle.fill"
-                  : checklist.category.systemImage)
+                  : checklist.category?.systemImage ?? "folder.fill")
                 .font(.title3)
                 .foregroundStyle(checklist.isEmergency ? .red : .accentColor)
                 .frame(width: 32, alignment: .center)

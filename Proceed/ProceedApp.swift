@@ -12,6 +12,7 @@ struct ProceedApp: App {
             )
             modelContainer = try ModelContainer(
                 for: Checklist.self, ChecklistStep.self, MediaAttachment.self,
+                     ProcedureCategory.self, Folder.self, Equipment.self,
                 configurations: configuration
             )
         } catch {

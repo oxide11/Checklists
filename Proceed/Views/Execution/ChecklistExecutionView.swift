@@ -4,6 +4,9 @@ struct ChecklistExecutionView: View {
     let checklist: Checklist
     @Environment(\.dismiss) private var dismiss
     @AppStorage("highlightCurrentStep") private var highlightCurrentStep = true
+    @AppStorage("autoStartTimers") private var autoStartTimers = true
+    @AppStorage("autoAdvanceOnTimerEnd") private var autoAdvanceOnTimerEnd = false
+    @AppStorage("progressiveDisclosure") private var progressiveDisclosure = true
     @State private var engine: ExecutionEngine
     @State private var showResetConfirmation = false
 
@@ -11,6 +14,7 @@ struct ChecklistExecutionView: View {
     @State private var activeTimerStepID: UUID? = nil
     @State private var timerRemaining: Double = 0
     @State private var timerTask: Task<Void, Never>? = nil
+    @State private var showAutoAdvanceBanner = false
 
     init(checklist: Checklist) {
         self.checklist = checklist
@@ -30,6 +34,7 @@ struct ChecklistExecutionView: View {
                                 index: index + 1,
                                 state: stepState(for: step),
                                 highlightCurrent: highlightCurrentStep,
+                                progressiveDisclosure: progressiveDisclosure,
                                 timerRemaining: activeTimerStepID == step.id ? timerRemaining : nil,
                                 timerRunning: activeTimerStepID == step.id,
                                 onComplete: {
@@ -63,8 +68,26 @@ struct ChecklistExecutionView: View {
                             withAnimation {
                                 proxy.scrollTo(newID, anchor: .center)
                             }
+
+                            // Auto-start timer for newly current step
+                            if autoStartTimers,
+                               let step = engine.visibleSteps.first(where: { $0.id == newID }),
+                               let duration = step.timerDuration, duration > 0 {
+                                startTimer(for: step)
+                            }
                         }
                     }
+                }
+            }
+            .overlay(alignment: .bottom) {
+                if showAutoAdvanceBanner {
+                    Text("Advancing...")
+                        .font(.headline)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 10)
+                        .background(.ultraThinMaterial, in: Capsule())
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                        .padding(.bottom, 20)
                 }
             }
             .navigationTitle(checklist.title)
@@ -186,6 +209,24 @@ struct ChecklistExecutionView: View {
                     }
                 }
             }
+
+            // Timer completed naturally (not cancelled)
+            guard !Task.isCancelled else { return }
+
+            if autoAdvanceOnTimerEnd && step.stepType != .decision {
+                await MainActor.run {
+                    withAnimation { showAutoAdvanceBanner = true }
+                }
+                try? await Task.sleep(for: .seconds(1.5))
+                guard !Task.isCancelled else { return }
+                await MainActor.run {
+                    withAnimation {
+                        showAutoAdvanceBanner = false
+                        stopTimer()
+                        engine.completeStep(step.id)
+                    }
+                }
+            }
         }
     }
 
@@ -194,5 +235,6 @@ struct ChecklistExecutionView: View {
         timerTask = nil
         activeTimerStepID = nil
         timerRemaining = 0
+        showAutoAdvanceBanner = false
     }
 }

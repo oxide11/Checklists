@@ -7,19 +7,25 @@ import SwiftData
 /// Only persisted to SwiftData on explicit save.
 struct EditableChecklist {
     var title: String = ""
-    var category: ChecklistCategory = .custom
+    var categoryID: UUID? = nil
+    var folderID: UUID? = nil
     var versionNumber: String = "v1.0"
     var isEmergency: Bool = false
     var steps: [EditableStep] = []
+    var preparationNotes: String = ""
+    var requiredEquipment: [String] = []
 
     init() {}
 
     init(from checklist: Checklist) {
         self.title = checklist.title
-        self.category = checklist.category
+        self.categoryID = checklist.category?.id
+        self.folderID = checklist.folder?.id
         self.versionNumber = checklist.versionNumber
         self.isEmergency = checklist.isEmergency
         self.steps = checklist.orderedSteps.map { EditableStep(from: $0) }
+        self.preparationNotes = checklist.preparationNotes ?? ""
+        self.requiredEquipment = checklist.requiredEquipment
     }
 
     var isValid: Bool {
@@ -41,10 +47,27 @@ struct EditableChecklist {
         }
 
         checklist.title = title
-        checklist.category = category
         checklist.versionNumber = versionNumber
         checklist.isEmergency = isEmergency
         checklist.lastUpdatedDate = Date()
+        checklist.preparationNotes = preparationNotes.isEmpty ? nil : preparationNotes
+        checklist.requiredEquipment = requiredEquipment.filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+
+        // Resolve category by ID
+        if let categoryID {
+            let descriptor = FetchDescriptor<ProcedureCategory>(predicate: #Predicate { $0.id == categoryID })
+            checklist.category = try? context.fetch(descriptor).first
+        } else {
+            checklist.category = nil
+        }
+
+        // Resolve folder by ID
+        if let folderID {
+            let descriptor = FetchDescriptor<Folder>(predicate: #Predicate { $0.id == folderID })
+            checklist.folder = try? context.fetch(descriptor).first
+        } else {
+            checklist.folder = nil
+        }
 
         // Create fresh steps with preserved IDs for branch targeting
         for (index, editable) in steps.enumerated() {

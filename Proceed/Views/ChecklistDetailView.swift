@@ -4,6 +4,7 @@ struct ChecklistDetailView: View {
     let checklist: Checklist
     @State private var showEditor = false
     @State private var showExecution = false
+    @State private var showPreparation = false
 
     var body: some View {
         List {
@@ -13,7 +14,7 @@ struct ChecklistDetailView: View {
                     HStack {
                         Label(checklist.versionNumber, systemImage: "tag")
                         Spacer()
-                        Label(checklist.category.displayName, systemImage: checklist.category.systemImage)
+                        Label(checklist.category?.name ?? "Uncategorized", systemImage: checklist.category?.systemImage ?? "folder.fill")
                     }
                     .font(.subheadline)
 
@@ -65,7 +66,13 @@ struct ChecklistDetailView: View {
         #endif
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
-                Button { showExecution = true } label: {
+                Button {
+                    if checklist.hasPreparation {
+                        showPreparation = true
+                    } else {
+                        showExecution = true
+                    }
+                } label: {
                     Label("Execute", systemImage: "play.fill")
                 }
                 .disabled(checklist.orderedSteps.isEmpty)
@@ -78,6 +85,14 @@ struct ChecklistDetailView: View {
         }
         .fullScreenCover(isPresented: $showExecution) {
             ChecklistExecutionView(checklist: checklist)
+        }
+        .sheet(isPresented: $showPreparation) {
+            PreparationView(checklist: checklist) {
+                showPreparation = false
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    showExecution = true
+                }
+            }
         }
         .sheet(isPresented: $showEditor) {
             ChecklistEditorView(checklist: checklist)
@@ -228,7 +243,7 @@ struct StepRow: View {
 #Preview {
     NavigationStack {
         ChecklistDetailView(checklist: {
-            let cl = Checklist(title: "Sample Procedure", category: .aviation, versionNumber: "v1.0", isEmergency: true)
+            let cl = Checklist(title: "Sample Procedure", versionNumber: "v1.0", isEmergency: true)
             return cl
         }())
     }

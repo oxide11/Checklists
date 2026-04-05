@@ -4,6 +4,8 @@ import SwiftData
 struct ChecklistEditorView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @Query(sort: \ProcedureCategory.sortOrder) private var categories: [ProcedureCategory]
+    @Query(sort: \Folder.sortOrder) private var folders: [Folder]
 
     let existingChecklist: Checklist?
     @State private var editable: EditableChecklist
@@ -19,6 +21,7 @@ struct ChecklistEditorView: View {
         NavigationStack {
             Form {
                 detailsSection
+                preparationSection
                 stepsSection
             }
             .navigationTitle(existingChecklist == nil ? "New Procedure" : "Edit Procedure")
@@ -47,10 +50,21 @@ struct ChecklistEditorView: View {
         Section {
             TextField("Procedure Title", text: $editable.title)
 
-            Picker("Category", selection: $editable.category) {
-                ForEach(ChecklistCategory.allCases) { cat in
-                    Label(cat.displayName, systemImage: cat.systemImage)
-                        .tag(cat)
+            Picker("Category", selection: $editable.categoryID) {
+                Text("None").tag(UUID?.none)
+                ForEach(categories) { cat in
+                    Label(cat.name, systemImage: cat.systemImage)
+                        .tag(Optional(cat.id))
+                }
+            }
+
+            if !folders.isEmpty {
+                Picker("Folder", selection: $editable.folderID) {
+                    Text("None").tag(UUID?.none)
+                    ForEach(folders) { folder in
+                        Label(folder.name, systemImage: folder.systemImage)
+                            .tag(Optional(folder.id))
+                    }
                 }
             }
 
@@ -61,6 +75,36 @@ struct ChecklistEditorView: View {
             }
         } header: {
             Text("Details")
+        }
+    }
+
+    // MARK: - Preparation Section
+
+    private var preparationSection: some View {
+        Section {
+            TextField("Preparation Notes", text: $editable.preparationNotes, axis: .vertical)
+                .lineLimit(2...6)
+
+            ForEach(editable.requiredEquipment.indices, id: \.self) { index in
+                HStack {
+                    Image(systemName: "wrench.and.screwdriver")
+                        .foregroundStyle(.secondary)
+                    TextField("Equipment item", text: $editable.requiredEquipment[index])
+                }
+            }
+            .onDelete { offsets in
+                editable.requiredEquipment.remove(atOffsets: offsets)
+            }
+
+            Button {
+                editable.requiredEquipment.append("")
+            } label: {
+                Label("Add Equipment", systemImage: "plus.circle")
+            }
+        } header: {
+            Text("Preparation")
+        } footer: {
+            Text("List tools, safety gear, and conditions needed before starting this procedure.")
         }
     }
 
