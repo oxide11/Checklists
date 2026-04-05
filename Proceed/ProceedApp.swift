@@ -1,21 +1,29 @@
-//
-//  ProceedApp.swift
-//  Proceed
-//
-//  Created by Moussa Noun on 2026-04-05.
-//
-
 import SwiftUI
-import CoreData
+import SwiftData
 
 @main
 struct ProceedApp: App {
-    let persistenceController = PersistenceController.shared
+    let modelContainer: ModelContainer
+
+    init() {
+        do {
+            let configuration = ModelConfiguration(
+                cloudKitDatabase: .automatic
+            )
+            modelContainer = try ModelContainer(
+                for: Checklist.self, ChecklistStep.self, MediaAttachment.self,
+                configurations: configuration
+            )
+        } catch {
+            fatalError("Failed to initialize SwiftData container: \(error)")
+        }
+    }
 
     var body: some Scene {
         WindowGroup {
             ContentView()
-                .environment(\.managedObjectContext, persistenceController.container.viewContext)
+                .nightVisionAware()
         }
+        .modelContainer(modelContainer)
     }
 }
