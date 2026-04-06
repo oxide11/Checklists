@@ -1,0 +1,134 @@
+import SwiftUI
+import SwiftData
+
+struct IssueListView: View {
+    let checklist: Checklist
+    @Environment(\.modelContext) private var modelContext
+
+    private var issues: [IssueReport] {
+        checklist.safeIssueReports.sorted { $0.timestamp > $1.timestamp }
+    }
+
+    var body: some View {
+        List {
+            if issues.isEmpty {
+                ContentUnavailableView(
+                    "No Reported Issues",
+                    systemImage: "checkmark.circle",
+                    description: Text("No one has reported an issue for this procedure yet.")
+                )
+            } else {
+                ForEach(issues) { issue in
+                    IssueRow(issue: issue)
+                }
+                .onDelete { offsets in
+                    let toDelete = offsets.map { issues[$0] }
+                    for item in toDelete {
+                        modelContext.delete(item)
+                    }
+                }
+            }
+        }
+        .navigationTitle("Reported Issues")
+        #if os(iOS)
+        .navigationBarTitleDisplayMode(.inline)
+        #endif
+    }
+}
+
+// MARK: - Issue Row
+
+struct IssueRow: View {
+    let issue: IssueReport
+    @Environment(\.modelContext) private var modelContext
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: severityIcon)
+                    .foregroundStyle(severityColor)
+                    .font(.title3)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(issue.issueDescription)
+                        .font(.subheadline.weight(.medium))
+                        .lineLimit(2)
+
+                    Text(issue.timestamp.formatted(date: .abbreviated, time: .shortened))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                Menu {
+                    if issue.issueStatus == .open {
+                        Button {
+                            issue.issueStatus = .acknowledged
+                        } label: {
+                            Label("Acknowledge", systemImage: "eye")
+                        }
+                    }
+                    if issue.issueStatus != .resolved {
+                        Button {
+                            issue.issueStatus = .resolved
+                        } label: {
+                            Label("Mark Resolved", systemImage: "checkmark.circle")
+                        }
+                    }
+                    if issue.issueStatus == .resolved {
+                        Button {
+                            issue.issueStatus = .open
+                        } label: {
+                            Label("Reopen", systemImage: "arrow.uturn.backward")
+                        }
+                    }
+                } label: {
+                    Text(issue.issueStatus.displayName)
+                        .font(.caption.weight(.medium))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(issue.issueStatus.color.opacity(0.15), in: Capsule())
+                        .foregroundStyle(issue.issueStatus.color)
+                }
+            }
+
+            if !issue.reason.isEmpty {
+                Text("Reason: \(issue.reason)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            if let stepText = issue.stepText {
+                HStack(spacing: 4) {
+                    Image(systemName: "arrow.right.circle")
+                        .font(.caption2)
+                    Text("At step: \(stepText)")
+                        .lineLimit(1)
+                }
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+            }
+
+            if let data = issue.photoData {
+                CachedImage(data: data)
+                    .scaledToFit()
+                    .frame(maxHeight: 120)
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+            }
+
+            Text("by \(issue.authorName)")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+        }
+        .padding(.vertical, 4)
+    }
+
+    private var severityIcon: String {
+        issue.issueSeverity.filledSystemImage
+    }
+
+    private var severityColor: Color {
+        issue.issueSeverity.color
+    }
+}

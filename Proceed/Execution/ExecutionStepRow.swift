@@ -9,9 +9,11 @@ struct ExecutionStepRow: View {
     let progressiveDisclosure: Bool
     let timerRemaining: Double?
     let timerRunning: Bool
+    let requiredEquipment: [Equipment]
     let onComplete: () -> Void
     let onSelectBranch: (UUID) -> Void
     let onStartTimer: () -> Void
+    let onTapEquipment: ((Equipment) -> Void)?
 
     enum StepState {
         case completed, current, upcoming
@@ -20,7 +22,7 @@ struct ExecutionStepRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 14) {
             completionIndicator
-                .frame(width: 36, alignment: .center)
+                .frame(width: 44, alignment: .center)
 
             VStack(alignment: .leading, spacing: 8) {
                 stepContent
@@ -33,7 +35,9 @@ struct ExecutionStepRow: View {
                 }
 
                 if state == .current {
+                    equipmentDisplay
                     mediaGallery
+                    referenceDisplay
                     metadataBadges
                     timerDisplay
                     interactionControls
@@ -57,8 +61,8 @@ struct ExecutionStepRow: View {
     private var completionIndicator: some View {
         VStack(spacing: 4) {
             Text("\(index)")
-                .font(.caption2.weight(.bold).monospacedDigit())
-                .foregroundStyle(.secondary)
+                .font(.title3.weight(.bold).monospacedDigit())
+                .foregroundStyle(state == .current ? .primary : .secondary)
 
             switch state {
             case .completed:
@@ -78,20 +82,8 @@ struct ExecutionStepRow: View {
 
     @ViewBuilder
     private var stepTypeIcon: some View {
-        switch step.stepType {
-        case .action:
-            Image(systemName: "circle")
-                .foregroundStyle(Color.accentColor)
-        case .decision:
-            Image(systemName: "arrow.triangle.branch")
-                .foregroundStyle(.cyan)
-        case .warning:
-            Image(systemName: "exclamationmark.triangle.fill")
-                .foregroundStyle(.red)
-        case .caution:
-            Image(systemName: "exclamationmark.circle.fill")
-                .foregroundStyle(.orange)
-        }
+        Image(systemName: step.stepType.systemImage)
+            .foregroundStyle(step.stepType == .action ? Color.accentColor : step.stepType.color)
     }
 
     // MARK: - Step Content
@@ -118,11 +110,64 @@ struct ExecutionStepRow: View {
     }
 
     private var textColor: Color {
-        switch step.stepType {
-        case .warning: .red
-        case .caution: .orange
-        case .decision: .primary
-        case .action: .primary
+        step.stepType.color
+    }
+
+    // MARK: - Equipment Display
+
+    @ViewBuilder
+    private var equipmentDisplay: some View {
+        if !requiredEquipment.isEmpty {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Required Equipment")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                ForEach(requiredEquipment) { item in
+                    Button {
+                        onTapEquipment?(item)
+                    } label: {
+                        HStack(spacing: 8) {
+                            if let data = item.photoData {
+                                CachedImage(data: data)
+                                    .scaledToFill()
+                                    .frame(width: 28, height: 28)
+                                    .clipShape(RoundedRectangle(cornerRadius: 4))
+                            } else {
+                                Image(systemName: "wrench.and.screwdriver")
+                                    .font(.caption)
+                                    .frame(width: 28, height: 28)
+                            }
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(item.name)
+                                    .font(.subheadline.weight(.medium))
+                                if !item.storageLocation.isEmpty {
+                                    Text(item.storageLocation)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(8)
+            .background(.fill.quaternary, in: RoundedRectangle(cornerRadius: 8))
+        }
+    }
+
+    // MARK: - Reference Display
+
+    @ViewBuilder
+    private var referenceDisplay: some View {
+        if let fileName = step.referenceFileName, !fileName.isEmpty {
+            Button {
+                // Reference viewing handled by parent via sheet
+            } label: {
+                Label("View: \(fileName)", systemImage: "doc.text.magnifyingglass")
+            }
+            .buttonStyle(.bordered)
+            .tint(.indigo)
         }
     }
 
@@ -130,7 +175,7 @@ struct ExecutionStepRow: View {
 
     @ViewBuilder
     private var mediaGallery: some View {
-        let attachments = step.mediaAttachments ?? []
+        let attachments = step.safeMediaAttachments
         if !attachments.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
                 ForEach(attachments) { attachment in
@@ -145,9 +190,8 @@ struct ExecutionStepRow: View {
         VStack(alignment: .leading, spacing: 4) {
             switch attachment.mediaType {
             case .image:
-                if let data = attachment.fileData, let uiImage = UIImage(data: data) {
-                    Image(uiImage: uiImage)
-                        .resizable()
+                if let data = attachment.fileData {
+                    CachedImage(data: data)
                         .scaledToFit()
                         .frame(maxHeight: 200)
                         .clipShape(RoundedRectangle(cornerRadius: 8))
@@ -182,7 +226,7 @@ struct ExecutionStepRow: View {
         if hasBadges {
             HStack(spacing: 12) {
                 if let duration = step.timerDuration, duration > 0 {
-                    Label(formatDuration(duration), systemImage: "timer")
+                    Label(duration.formattedDuration, systemImage: "timer")
                         .font(.caption.weight(.medium))
                         .foregroundStyle(.blue)
                 }
@@ -219,7 +263,7 @@ struct ExecutionStepRow: View {
             } else if !timerRunning {
                 // Timer not started
                 Button(action: onStartTimer) {
-                    Label("Start Timer (\(formatDuration(duration)))", systemImage: "timer")
+                    Label("Start Timer (\(duration.formattedDuration))", systemImage: "timer")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)
@@ -297,15 +341,6 @@ struct ExecutionStepRow: View {
     }
 
     // MARK: - Helpers
-
-    private func formatDuration(_ seconds: Double) -> String {
-        let mins = Int(seconds) / 60
-        let secs = Int(seconds) % 60
-        if mins > 0 {
-            return secs > 0 ? "\(mins)m \(secs)s" : "\(mins)m"
-        }
-        return "\(secs)s"
-    }
 
     private func formatCountdown(_ seconds: Double) -> String {
         let total = max(0, Int(ceil(seconds)))

@@ -68,7 +68,19 @@ struct ChecklistEditorView: View {
                 }
             }
 
-            TextField("Version", text: $editable.versionNumber)
+            HStack {
+                Text("Version")
+                Spacer()
+                Text(editable.versionNumber)
+                    .foregroundStyle(.secondary)
+                if existingChecklist != nil {
+                    Button("Major Bump") {
+                        editable.bumpMajorVersion()
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                }
+            }
 
             Toggle(isOn: $editable.isEmergency) {
                 Label("Emergency Procedure", systemImage: "exclamationmark.triangle.fill")
@@ -182,7 +194,7 @@ struct ChecklistEditorView: View {
                 HStack(spacing: 6) {
                     Text(step.stepType.rawValue.capitalized)
                         .font(.caption.weight(.medium))
-                        .foregroundStyle(colorForStepType(step.stepType))
+                        .foregroundStyle(step.stepType.color)
 
                     if step.stepType == .decision && !step.branchOptions.isEmpty {
                         Text("\u{00B7} \(step.branchOptions.count) branches")
@@ -211,29 +223,8 @@ struct ChecklistEditorView: View {
 
     @ViewBuilder
     private func stepTypeIcon(_ type: StepType) -> some View {
-        switch type {
-        case .action:
-            Image(systemName: "circle")
-                .foregroundStyle(.primary)
-        case .decision:
-            Image(systemName: "arrow.triangle.branch")
-                .foregroundStyle(.cyan)
-        case .warning:
-            Image(systemName: "exclamationmark.triangle.fill")
-                .foregroundStyle(.red)
-        case .caution:
-            Image(systemName: "exclamationmark.circle.fill")
-                .foregroundStyle(.orange)
-        }
-    }
-
-    private func colorForStepType(_ type: StepType) -> Color {
-        switch type {
-        case .action: .primary
-        case .decision: .cyan
-        case .warning: .red
-        case .caution: .orange
-        }
+        Image(systemName: type.systemImage)
+            .foregroundStyle(type.color)
     }
 
     private func cleanupBranchReferences(deletedIDs: Set<UUID>) {

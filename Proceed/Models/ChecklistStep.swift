@@ -26,12 +26,31 @@ final class ChecklistStep {
     var hardwarePartLink: String? = nil
     var isCriticalFailure: Bool = false
 
+    // MARK: Per-Step Equipment
+    var requiredEquipmentIDsData: Data? = nil
+
+    var requiredEquipmentIDs: [UUID] {
+        get {
+            guard let data = requiredEquipmentIDsData else { return [] }
+            return (try? JSONDecoder().decode([UUID].self, from: data)) ?? []
+        }
+        set {
+            requiredEquipmentIDsData = try? JSONEncoder().encode(newValue)
+        }
+    }
+
+    // MARK: Reference Files
+    @Attribute(.externalStorage) var referenceFileData: Data? = nil
+    var referenceFileName: String? = nil
+
     // MARK: Relationships
 
     var checklist: Checklist? = nil
 
     @Relationship(deleteRule: .cascade, inverse: \MediaAttachment.step)
     var mediaAttachments: [MediaAttachment]? = []
+
+    var safeMediaAttachments: [MediaAttachment] { mediaAttachments ?? [] }
 
     // MARK: Computed — Branch Options
 

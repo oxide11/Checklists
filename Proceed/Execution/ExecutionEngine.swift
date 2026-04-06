@@ -1,6 +1,7 @@
 import Foundation
 import Observation
 
+@MainActor
 @Observable
 final class ExecutionEngine {
 
@@ -49,7 +50,8 @@ final class ExecutionEngine {
     init(checklist: Checklist) {
         let ordered = checklist.orderedSteps
         self.allOrderedSteps = ordered
-        self.stepsByID = Dictionary(uniqueKeysWithValues: ordered.map { ($0.id, $0) })
+        // Use last-wins merge to avoid crash if SwiftData sync produces duplicate IDs
+        self.stepsByID = Dictionary(ordered.map { ($0.id, $0) }, uniquingKeysWith: { _, latest in latest })
         self.firstStepID = ordered.first?.id
         self.currentStepID = ordered.first?.id
     }

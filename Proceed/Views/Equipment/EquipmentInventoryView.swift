@@ -77,9 +77,16 @@ struct EquipmentRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: "wrench.and.screwdriver")
-                .foregroundStyle(Color.accentColor)
-                .frame(width: 28)
+            if let data = equipment.photoData {
+                CachedImage(data: data)
+                    .scaledToFill()
+                    .frame(width: 40, height: 40)
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+            } else {
+                Image(systemName: "wrench.and.screwdriver")
+                    .foregroundStyle(Color.accentColor)
+                    .frame(width: 40, height: 40)
+            }
             VStack(alignment: .leading, spacing: 2) {
                 Text(equipment.name)
                     .font(.body.weight(.medium))

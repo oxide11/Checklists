@@ -11,6 +11,8 @@ final class Folder {
     @Relationship(inverse: \Checklist.folder)
     var checklists: [Checklist]? = []
 
+    var safeChecklists: [Checklist] { checklists ?? [] }
+
     init(
         name: String = "",
         systemImage: String = "folder.fill",

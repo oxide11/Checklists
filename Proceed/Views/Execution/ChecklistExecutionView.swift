@@ -1,14 +1,18 @@
 import SwiftUI
+import SwiftData
 
 struct ChecklistExecutionView: View {
     let checklist: Checklist
     @Environment(\.dismiss) private var dismiss
+    @Query(sort: \Equipment.name) private var allEquipment: [Equipment]
+    @Query(sort: \Checklist.title) private var allChecklists: [Checklist]
     @AppStorage("highlightCurrentStep") private var highlightCurrentStep = true
     @AppStorage("autoStartTimers") private var autoStartTimers = true
     @AppStorage("autoAdvanceOnTimerEnd") private var autoAdvanceOnTimerEnd = false
     @AppStorage("progressiveDisclosure") private var progressiveDisclosure = true
     @State private var engine: ExecutionEngine
     @State private var showResetConfirmation = false
+    @State private var showIssueReport = false
 
     // Timer state
     @State private var activeTimerStepID: UUID? = nil
@@ -28,7 +32,9 @@ struct ChecklistExecutionView: View {
 
                 ScrollViewReader { proxy in
                     List {
+
                         ForEach(Array(engine.visibleSteps.enumerated()), id: \.element.id) { index, step in
+                            let stepEquipment = allEquipment.filter { step.requiredEquipmentIDs.contains($0.id) }
                             ExecutionStepRow(
                                 step: step,
                                 index: index + 1,
@@ -37,6 +43,7 @@ struct ChecklistExecutionView: View {
                                 progressiveDisclosure: progressiveDisclosure,
                                 timerRemaining: activeTimerStepID == step.id ? timerRemaining : nil,
                                 timerRunning: activeTimerStepID == step.id,
+                                requiredEquipment: stepEquipment,
                                 onComplete: {
                                     withAnimation(.easeInOut(duration: 0.3)) {
                                         stopTimer()
@@ -51,7 +58,8 @@ struct ChecklistExecutionView: View {
                                 },
                                 onStartTimer: {
                                     startTimer(for: step)
-                                }
+                                },
+                                onTapEquipment: nil
                             )
                             .id(step.id)
                             .listRowSeparator(.hidden)
@@ -63,6 +71,8 @@ struct ChecklistExecutionView: View {
                         }
                     }
                     .listStyle(.plain)
+                    .scrollContentBackground(.hidden)
+                    .background(Color(.systemBackground))
                     .onChange(of: engine.currentStepID) { _, newID in
                         if let newID {
                             withAnimation {
@@ -100,6 +110,14 @@ struct ChecklistExecutionView: View {
                 }
                 ToolbarItem(placement: .primaryAction) {
                     Menu {
+                        Button {
+                            showIssueReport = true
+                        } label: {
+                            Label("Report Issue", systemImage: "exclamationmark.bubble")
+                        }
+
+                        Divider()
+
                         Button(role: .destructive) {
                             showResetConfirmation = true
                         } label: {
@@ -110,6 +128,14 @@ struct ChecklistExecutionView: View {
                     }
                 }
             }
+            .background(Color(.systemBackground).ignoresSafeArea())
+            .sheet(isPresented: $showIssueReport) {
+                IssueReportView(
+                    checklist: checklist,
+                    currentStep: engine.visibleSteps.first { $0.id == engine.currentStepID }
+                )
+                .nightVisionAware()
+            }
             .confirmationDialog("Reset Procedure?", isPresented: $showResetConfirmation) {
                 Button("Reset to Beginning", role: .destructive) {
                     stopTimer()
@@ -119,6 +145,9 @@ struct ChecklistExecutionView: View {
             } message: {
                 Text("This will clear all progress and start from the first step.")
             }
+        }
+        .onDisappear {
+            stopTimer()
         }
         .nightVisionAware()
     }
@@ -162,6 +191,19 @@ struct ChecklistExecutionView: View {
             Text("All \(engine.visibleSteps.count) steps executed successfully.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
+
+            // Workflow context
+            if let workflowID = checklist.workflowID {
+                let siblings = allChecklists
+                    .filter { $0.workflowID == workflowID }
+                    .sorted { $0.workflowOrder < $1.workflowOrder }
+                let position = (siblings.firstIndex(where: { $0.id == checklist.id }) ?? 0) + 1
+
+                Text("Procedure \(position) of \(siblings.count) in \(checklist.workflowName ?? "Workflow")")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.top, 4)
+            }
 
             Button {
                 dismiss()

@@ -9,6 +9,7 @@ final class Equipment {
     var equipmentCategory: String = ""
     var notes: String? = nil
     var lastInspectedDate: Date? = nil
+    @Attribute(.externalStorage) var photoData: Data? = nil
 
     @Relationship(inverse: \Checklist.requiredEquipmentItems)
     var checklists: [Checklist]? = []

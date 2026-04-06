@@ -1,10 +1,34 @@
 import SwiftUI
+import SwiftData
 
 struct ChecklistDetailView: View {
     let checklist: Checklist
+    @Query(sort: \Equipment.name) private var allEquipment: [Equipment]
+    @Query(sort: \Checklist.title) private var allChecklists: [Checklist]
+    @Environment(\.modelContext) private var modelContext
     @State private var showEditor = false
     @State private var showExecution = false
     @State private var showPreparation = false
+    @State private var inlineMode = true
+    @State private var inlineEngine: ExecutionEngine?
+    @State private var exportFormat: ExportFormat = .markdown
+    @State private var showExportShare = false
+    @State private var exportFileURL: URL? = nil
+    @State private var showExportError = false
+    @State private var showApproval = false
+    @State private var showShareSheet = false
+    @State private var showShareError = false
+    @State private var preparationCompleted = false
+    @State private var showChangeLog = false
+    @State private var showIssues = false
+    @State private var showTeam = false
+
+    // Timer state for inline check-off mode
+    @State private var activeTimerStepID: UUID? = nil
+    @State private var timerRemaining: Double = 0
+    @State private var timerTask: Task<Void, Never>? = nil
+
+    enum ExportFormat { case markdown, html, pdf }
 
     var body: some View {
         List {
@@ -38,6 +62,31 @@ struct ChecklistDetailView: View {
                 }
             }
 
+            // MARK: Approval Actions (shown only when relevant)
+            if checklist.safeRoles.contains(where: { $0.userRole == .approver }) {
+                if checklist.procedureStatus == .draft || checklist.procedureStatus == .rejected {
+                    Section {
+                        Button {
+                            submitForReview()
+                        } label: {
+                            Label("Submit for Review", systemImage: "arrow.up.circle.fill")
+                        }
+                        .tint(.orange)
+                    }
+                }
+
+                if checklist.procedureStatus == .pendingReview {
+                    Section {
+                        Button {
+                            showApproval = true
+                        } label: {
+                            Label("Review Procedure", systemImage: "checkmark.seal")
+                        }
+                        .tint(.green)
+                    }
+                }
+            }
+
             // MARK: Outdated Warning
             if checklist.isOutdated {
                 Section {
@@ -51,19 +100,127 @@ struct ChecklistDetailView: View {
                 }
             }
 
+            // MARK: Required Equipment (shown in inline mode or always if present)
+            if inlineMode {
+                equipmentSection
+            }
+
             // MARK: Steps
             Section {
                 ForEach(Array(checklist.orderedSteps.enumerated()), id: \.element.id) { index, step in
-                    StepRow(step: step, index: index + 1)
+                    if inlineMode, let engine = inlineEngine {
+                        let stepEquipment = allEquipment.filter { step.requiredEquipmentIDs.contains($0.id) }
+                        InlineStepRow(
+                            step: step,
+                            index: index + 1,
+                            isCompleted: engine.completedStepIDs.contains(step.id),
+                            isCurrent: step.id == engine.currentStepID,
+                            requiredEquipment: stepEquipment,
+                            timerRemaining: activeTimerStepID == step.id ? timerRemaining : nil,
+                            timerRunning: activeTimerStepID == step.id,
+                            onComplete: {
+                                stopTimer()
+                                engine.completeStep(step.id)
+                            },
+                            onSelectBranch: { targetID in
+                                stopTimer()
+                                engine.selectBranch(on: step.id, targetStepID: targetID)
+                            },
+                            onStartTimer: {
+                                startTimer(for: step)
+                            }
+                        )
+                    } else {
+                        StepRow(step: step, index: index + 1)
+                    }
                 }
             } header: {
-                Text("Steps (\(checklist.orderedSteps.count))")
+                HStack {
+                    Text("Steps (\(checklist.orderedSteps.count))")
+                    Spacer()
+                    if inlineMode, let engine = inlineEngine {
+                        Text(engine.progressLabel)
+                            .font(.caption.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+
+            // MARK: Completion Banner
+            if inlineMode, let engine = inlineEngine, engine.isComplete {
+                Section {
+                    VStack(spacing: 12) {
+                        Image(systemName: "checkmark.seal.fill")
+                            .font(.system(size: 48))
+                            .foregroundStyle(.green)
+                            .symbolEffect(.bounce, value: engine.isComplete)
+
+                        Text("Procedure Complete")
+                            .font(.title2.weight(.bold))
+
+                        Text("All \(engine.visibleSteps.count) steps completed successfully.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+
+                        // Workflow context
+                        if let workflowID = checklist.workflowID {
+                            let siblings = allChecklists
+                                .filter { $0.workflowID == workflowID }
+                                .sorted { $0.workflowOrder < $1.workflowOrder }
+                            let position = (siblings.firstIndex(where: { $0.id == checklist.id }) ?? 0) + 1
+
+                            Text("Procedure \(position) of \(siblings.count) in \(checklist.workflowName ?? "Workflow")")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .padding(.top, 4)
+
+                            if let nextIndex = siblings.firstIndex(where: { $0.id == checklist.id }),
+                               nextIndex + 1 < siblings.count {
+                                let nextProcedure = siblings[nextIndex + 1]
+                                NavigationLink {
+                                    ChecklistDetailView(checklist: nextProcedure)
+                                } label: {
+                                    Label("Next: \(nextProcedure.title)", systemImage: "arrow.right.circle.fill")
+                                        .frame(maxWidth: .infinity)
+                                }
+                                .buttonStyle(.borderedProminent)
+                                .controlSize(.large)
+                                .tint(.green)
+                                .padding(.top, 4)
+                            }
+                        }
+
+                        Button {
+                            withAnimation {
+                                stopTimer()
+                                engine.reset()
+                            }
+                        } label: {
+                            Label("Reset Procedure", systemImage: "arrow.counterclockwise")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.large)
+                        .tint(.blue)
+                        .padding(.top, 8)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                }
             }
         }
         .navigationTitle(checklist.title)
         #if os(iOS)
         .navigationBarTitleDisplayMode(.large)
         #endif
+        .task {
+            if inlineMode && inlineEngine == nil && !checklist.orderedSteps.isEmpty {
+                inlineEngine = ExecutionEngine(checklist: checklist)
+            }
+        }
+        .onDisappear {
+            stopTimer()
+        }
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button {
@@ -78,25 +235,280 @@ struct ChecklistDetailView: View {
                 .disabled(checklist.orderedSteps.isEmpty)
             }
             ToolbarItem(placement: .secondaryAction) {
+                Button {
+                    if inlineMode {
+                        inlineMode = false
+                        inlineEngine = nil
+                    } else {
+                        inlineEngine = ExecutionEngine(checklist: checklist)
+                        inlineMode = true
+                    }
+                } label: {
+                    Label(
+                        inlineMode ? "View Mode" : "Check-off Mode",
+                        systemImage: inlineMode ? "eye" : "checklist.checked"
+                    )
+                }
+                .disabled(checklist.orderedSteps.isEmpty)
+            }
+            ToolbarItem(placement: .secondaryAction) {
                 Button { showEditor = true } label: {
                     Label("Edit", systemImage: "pencil")
+                }
+            }
+            ToolbarItem(placement: .secondaryAction) {
+                Button { showChangeLog = true } label: {
+                    let count = checklist.safeChangeLog.count
+                    Label("Change History (\(count))", systemImage: "clock.arrow.circlepath")
+                }
+            }
+            ToolbarItem(placement: .secondaryAction) {
+                Button { showIssues = true } label: {
+                    let openCount = checklist.safeIssueReports.filter { $0.issueStatus == .open }.count
+                    if openCount > 0 {
+                        Label("Reported Issues (\(openCount) open)", systemImage: "exclamationmark.bubble")
+                    } else {
+                        Label("Reported Issues", systemImage: "exclamationmark.bubble")
+                    }
+                }
+            }
+            ToolbarItem(placement: .secondaryAction) {
+                Button { showTeam = true } label: {
+                    let count = checklist.safeRoles.count
+                    Label("Team (\(count))", systemImage: "person.2")
+                }
+            }
+            ToolbarItem(placement: .secondaryAction) {
+                Label(
+                    "Status: \(checklist.procedureStatus.displayName)",
+                    systemImage: checklist.procedureStatus.systemImage
+                )
+                .foregroundStyle(checklist.procedureStatus.color)
+            }
+            ToolbarItem(placement: .secondaryAction) {
+                Menu {
+                    Button {
+                        exportFormat = .markdown
+                        exportAndShare()
+                    } label: {
+                        Label("Markdown", systemImage: "doc.plaintext")
+                    }
+                    Button {
+                        exportFormat = .html
+                        exportAndShare()
+                    } label: {
+                        Label("HTML", systemImage: "globe")
+                    }
+                    Button {
+                        exportFormat = .pdf
+                        exportAndShare()
+                    } label: {
+                        Label("PDF", systemImage: "doc.richtext")
+                    }
+                } label: {
+                    Label("Export", systemImage: "square.and.arrow.up")
+                }
+            }
+            ToolbarItem(placement: .secondaryAction) {
+                Button {
+                    Task {
+                        let available = await CloudKitSharingService.shared.checkAccountStatus()
+                        if available {
+                            showShareSheet = true
+                        } else {
+                            showShareError = true
+                        }
+                    }
+                } label: {
+                    Label("Share with Team", systemImage: "person.crop.circle.badge.plus")
                 }
             }
         }
         .fullScreenCover(isPresented: $showExecution) {
             ChecklistExecutionView(checklist: checklist)
         }
-        .sheet(isPresented: $showPreparation) {
+        .sheet(isPresented: $showPreparation, onDismiss: {
+            if preparationCompleted {
+                preparationCompleted = false
+                showExecution = true
+            }
+        }) {
             PreparationView(checklist: checklist) {
+                preparationCompleted = true
                 showPreparation = false
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                    showExecution = true
+            }
+        }
+        .fullScreenCover(isPresented: $showEditor) {
+            ChecklistEditorView(checklist: checklist)
+                .nightVisionAware()
+        }
+        .sheet(isPresented: $showExportShare) {
+            if let url = exportFileURL {
+                ShareSheet(items: [url])
+            }
+        }
+        .sheet(isPresented: $showApproval) {
+            ApprovalView(checklist: checklist)
+        }
+        .alert("Share with Team", isPresented: $showShareSheet) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("CloudKit sharing requires additional setup. Procedures sync automatically across your iCloud devices.")
+        }
+        .alert("iCloud Required", isPresented: $showShareError) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Sign in to iCloud in Settings to share procedures with your team.")
+        }
+        .alert("Export Failed", isPresented: $showExportError) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("The procedure could not be exported. Please try again or choose a different format.")
+        }
+        .sheet(isPresented: $showChangeLog) {
+            NavigationStack {
+                ChangeLogView(checklist: checklist)
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Done") { showChangeLog = false }
+                        }
+                    }
+            }
+        }
+        .sheet(isPresented: $showIssues) {
+            NavigationStack {
+                IssueListView(checklist: checklist)
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Done") { showIssues = false }
+                        }
+                    }
+            }
+        }
+        .sheet(isPresented: $showTeam) {
+            NavigationStack {
+                TeamManagementView(checklist: checklist)
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Done") { showTeam = false }
+                        }
+                    }
+            }
+        }
+    }
+
+    private func exportAndShare() {
+        let tempDir = FileManager.default.temporaryDirectory
+        let safeName = checklist.title.replacingOccurrences(of: "/", with: "-")
+
+        do {
+            switch exportFormat {
+            case .markdown:
+                let content = ExportService.exportMarkdown(checklist: checklist)
+                let url = tempDir.appendingPathComponent("\(safeName).md")
+                try content.write(to: url, atomically: true, encoding: .utf8)
+                exportFileURL = url
+            case .html:
+                let content = ExportService.exportHTML(checklist: checklist)
+                let url = tempDir.appendingPathComponent("\(safeName).html")
+                try content.write(to: url, atomically: true, encoding: .utf8)
+                exportFileURL = url
+            case .pdf:
+                guard let data = ExportService.exportPDF(checklist: checklist) else {
+                    showExportError = true
+                    return
+                }
+                let url = tempDir.appendingPathComponent("\(safeName).pdf")
+                try data.write(to: url)
+                exportFileURL = url
+            }
+            showExportShare = true
+        } catch {
+            showExportError = true
+        }
+    }
+
+    private func submitForReview() {
+        checklist.procedureStatus = .pendingReview
+
+        let logEntry = ChangeLogEntry(
+            changeType: .submitted,
+            summary: "Submitted for review",
+            previousVersionNumber: checklist.versionNumber,
+            newVersionNumber: checklist.versionNumber
+        )
+        logEntry.checklist = checklist
+        modelContext.insert(logEntry)
+    }
+
+    // MARK: - Timer (Inline Mode)
+
+    private func startTimer(for step: ChecklistStep) {
+        guard let duration = step.timerDuration, duration > 0 else { return }
+        stopTimer()
+
+        activeTimerStepID = step.id
+        timerRemaining = duration
+
+        timerTask = Task {
+            let start = Date()
+            while !Task.isCancelled && timerRemaining > 0 {
+                try? await Task.sleep(for: .milliseconds(100))
+                let elapsed = Date().timeIntervalSince(start)
+                await MainActor.run {
+                    withAnimation(.linear(duration: 0.1)) {
+                        timerRemaining = max(0, duration - elapsed)
+                    }
                 }
             }
         }
-        .sheet(isPresented: $showEditor) {
-            ChecklistEditorView(checklist: checklist)
-                .nightVisionAware()
+    }
+
+    private func stopTimer() {
+        timerTask?.cancel()
+        timerTask = nil
+        activeTimerStepID = nil
+        timerRemaining = 0
+    }
+
+    // MARK: - Equipment Section
+
+    @ViewBuilder
+    private var equipmentSection: some View {
+        let inventoryEquipment = checklist.safeEquipmentItems
+        let freeTextEquipment = checklist.requiredEquipment
+
+        if !inventoryEquipment.isEmpty || !freeTextEquipment.isEmpty {
+            Section("Required Equipment") {
+                ForEach(inventoryEquipment) { item in
+                    HStack(spacing: 10) {
+                        if let data = item.photoData {
+                            CachedImage(data: data)
+                                .scaledToFill()
+                                .frame(width: 32, height: 32)
+                                .clipShape(RoundedRectangle(cornerRadius: 4))
+                        } else {
+                            Image(systemName: "wrench.and.screwdriver")
+                                .foregroundStyle(.secondary)
+                                .frame(width: 32, height: 32)
+                        }
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(item.name)
+                                .font(.subheadline)
+                            if !item.storageLocation.isEmpty {
+                                Text(item.storageLocation)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
+                ForEach(freeTextEquipment, id: \.self) { item in
+                    Label(item, systemImage: "wrench.and.screwdriver")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+            }
         }
     }
 }
@@ -112,11 +524,11 @@ struct StepRow: View {
             // Step number + type icon
             VStack(spacing: 4) {
                 Text("\(index)")
-                    .font(.caption2.weight(.bold))
+                    .font(.headline.monospacedDigit())
                     .foregroundStyle(.secondary)
                 stepIcon
             }
-            .frame(width: 28, alignment: .center)
+            .frame(width: 36, alignment: .center)
 
             // Content
             VStack(alignment: .leading, spacing: 6) {
@@ -137,8 +549,8 @@ struct StepRow: View {
                     }
                 } else {
                     Text(step.text)
-                        .font(fontForStepType)
-                        .foregroundStyle(colorForStepType)
+                        .font(step.stepType.font)
+                        .foregroundStyle(step.stepType.color)
                 }
 
                 if let note = step.note {
@@ -152,10 +564,8 @@ struct StepRow: View {
                 if let attachments = step.mediaAttachments, !attachments.isEmpty {
                     HStack(spacing: 8) {
                         ForEach(attachments) { attachment in
-                            if attachment.mediaType == .image, let data = attachment.fileData,
-                               let uiImage = UIImage(data: data) {
-                                Image(uiImage: uiImage)
-                                    .resizable()
+                            if attachment.mediaType == .image, let data = attachment.fileData {
+                                CachedImage(data: data)
                                     .scaledToFill()
                                     .frame(width: 48, height: 48)
                                     .clipShape(RoundedRectangle(cornerRadius: 6))
@@ -170,10 +580,17 @@ struct StepRow: View {
                     }
                 }
 
+                // Reference file badge
+                if let refName = step.referenceFileName, !refName.isEmpty {
+                    Label(refName, systemImage: "doc.fill")
+                        .font(.caption)
+                        .foregroundStyle(.indigo)
+                }
+
                 // Metadata badges
                 HStack(spacing: 12) {
                     if let duration = step.timerDuration, duration > 0 {
-                        Label(formatDuration(duration), systemImage: "timer")
+                        Label(duration.formattedDuration, systemImage: "timer")
                             .font(.caption.weight(.medium))
                             .foregroundStyle(.blue)
                     }
@@ -187,6 +604,11 @@ struct StepRow: View {
                             .font(.caption.weight(.medium))
                             .foregroundStyle(.orange)
                     }
+                    if !step.requiredEquipmentIDs.isEmpty {
+                        Label("\(step.requiredEquipmentIDs.count) tools", systemImage: "wrench.and.screwdriver")
+                            .font(.caption.weight(.medium))
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
         }
@@ -197,47 +619,21 @@ struct StepRow: View {
 
     @ViewBuilder
     private var stepIcon: some View {
-        switch step.stepType {
-        case .action:
-            Image(systemName: "circle")
-                .foregroundStyle(.primary)
-        case .decision:
-            Image(systemName: "arrow.triangle.branch")
-                .foregroundStyle(.cyan)
-        case .warning:
-            Image(systemName: "exclamationmark.triangle.fill")
-                .foregroundStyle(.red)
-        case .caution:
-            Image(systemName: "exclamationmark.circle.fill")
-                .foregroundStyle(.orange)
-        }
+        Image(systemName: step.stepType.systemImage)
+            .foregroundStyle(step.stepType.color)
+    }
+}
+
+// MARK: - Share Sheet
+
+struct ShareSheet: UIViewControllerRepresentable {
+    let items: [Any]
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: items, applicationActivities: nil)
     }
 
-    private var fontForStepType: Font {
-        switch step.stepType {
-        case .warning: .body.weight(.bold)
-        case .caution: .body.weight(.semibold)
-        case .action, .decision: .body
-        }
-    }
-
-    private var colorForStepType: Color {
-        switch step.stepType {
-        case .warning: .red
-        case .caution: .orange
-        case .action: .primary
-        case .decision: .cyan
-        }
-    }
-
-    private func formatDuration(_ seconds: Double) -> String {
-        let mins = Int(seconds) / 60
-        let secs = Int(seconds) % 60
-        if mins > 0 {
-            return secs > 0 ? "\(mins)m \(secs)s" : "\(mins)m"
-        }
-        return "\(secs)s"
-    }
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
 
 #Preview {

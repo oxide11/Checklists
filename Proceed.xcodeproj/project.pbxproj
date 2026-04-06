@@ -6,8 +6,19 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXContainerItemProxy section */
+		331301632F832700005EE9D4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 331300EB2F82D24C005EE9D4 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 331300F22F82D24C005EE9D4;
+			remoteInfo = Proceed;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
 		331300F32F82D24C005EE9D4 /* Proceed.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Proceed.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		3313015F2F832700005EE9D4 /* ProceedTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ProceedTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -29,10 +40,22 @@
 			path = Proceed;
 			sourceTree = "<group>";
 		};
+		331301602F832700005EE9D4 /* ProceedTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = ProceedTests;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		331300F02F82D24C005EE9D4 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		3313015C2F832700005EE9D4 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -46,6 +69,7 @@
 			isa = PBXGroup;
 			children = (
 				331300F52F82D24C005EE9D4 /* Proceed */,
+				331301602F832700005EE9D4 /* ProceedTests */,
 				331300F42F82D24C005EE9D4 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -54,6 +78,7 @@
 			isa = PBXGroup;
 			children = (
 				331300F32F82D24C005EE9D4 /* Proceed.app */,
+				3313015F2F832700005EE9D4 /* ProceedTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -83,6 +108,29 @@
 			productReference = 331300F32F82D24C005EE9D4 /* Proceed.app */;
 			productType = "com.apple.product-type.application";
 		};
+		3313015E2F832700005EE9D4 /* ProceedTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 331301652F832700005EE9D4 /* Build configuration list for PBXNativeTarget "ProceedTests" */;
+			buildPhases = (
+				3313015B2F832700005EE9D4 /* Sources */,
+				3313015C2F832700005EE9D4 /* Frameworks */,
+				3313015D2F832700005EE9D4 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				331301642F832700005EE9D4 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				331301602F832700005EE9D4 /* ProceedTests */,
+			);
+			name = ProceedTests;
+			packageProductDependencies = (
+			);
+			productName = ProceedTests;
+			productReference = 3313015F2F832700005EE9D4 /* ProceedTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -95,6 +143,10 @@
 				TargetAttributes = {
 					331300F22F82D24C005EE9D4 = {
 						CreatedOnToolsVersion = 26.4;
+					};
+					3313015E2F832700005EE9D4 = {
+						CreatedOnToolsVersion = 26.4;
+						TestTargetID = 331300F22F82D24C005EE9D4;
 					};
 				};
 			};
@@ -113,12 +165,20 @@
 			projectRoot = "";
 			targets = (
 				331300F22F82D24C005EE9D4 /* Proceed */,
+				3313015E2F832700005EE9D4 /* ProceedTests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		331300F12F82D24C005EE9D4 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		3313015D2F832700005EE9D4 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -135,7 +195,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		3313015B2F832700005EE9D4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		331301642F832700005EE9D4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 331300F22F82D24C005EE9D4 /* Proceed */;
+			targetProxy = 331301632F832700005EE9D4 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		331301052F82D24D005EE9D4 /* Debug */ = {
@@ -351,6 +426,53 @@
 			};
 			name = Release;
 		};
+		331301662F832700005EE9D4 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6UWUMY6H27;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.polygoncyber.ProceedTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Proceed.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Proceed";
+			};
+			name = Debug;
+		};
+		331301672F832700005EE9D4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6UWUMY6H27;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.polygoncyber.ProceedTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Proceed.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Proceed";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -368,6 +490,15 @@
 			buildConfigurations = (
 				331301052F82D24D005EE9D4 /* Debug */,
 				331301062F82D24D005EE9D4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		331301652F832700005EE9D4 /* Build configuration list for PBXNativeTarget "ProceedTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				331301662F832700005EE9D4 /* Debug */,
+				331301672F832700005EE9D4 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

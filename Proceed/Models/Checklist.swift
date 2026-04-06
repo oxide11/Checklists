@@ -11,6 +11,7 @@ final class Checklist {
     var createdDate: Date = Date()
     var sortOrder: Int = 0
     var isEmergency: Bool = false
+    var status: String = "published"  // draft, pendingReview, approved, rejected, published
 
     // Relationships
     @Relationship(inverse: \ProcedureCategory.checklists)
@@ -22,6 +23,22 @@ final class Checklist {
 
     @Relationship
     var requiredEquipmentItems: [Equipment]? = []
+
+    @Relationship(deleteRule: .cascade, inverse: \ChangeLogEntry.checklist)
+    var changeLog: [ChangeLogEntry]? = []
+
+    @Relationship(deleteRule: .cascade, inverse: \IssueReport.checklist)
+    var issueReports: [IssueReport]? = []
+
+    @Relationship(deleteRule: .cascade, inverse: \ProcedureRole.checklist)
+    var roles: [ProcedureRole]? = []
+
+    // Workflow (procedure chaining)
+    var workflowID: UUID? = nil
+    var workflowOrder: Int = 0
+    var workflowName: String? = nil
+
+    var isInWorkflow: Bool { workflowID != nil }
 
     // Preparation
     var preparationNotes: String? = nil
@@ -37,10 +54,24 @@ final class Checklist {
         }
     }
 
+    // MARK: - Safe Relationship Accessors (nil-coalescing for SwiftData optionals)
+
+    var safeSteps: [ChecklistStep] { steps ?? [] }
+    var safeRoles: [ProcedureRole] { roles ?? [] }
+    var safeChangeLog: [ChangeLogEntry] { changeLog ?? [] }
+    var safeIssueReports: [IssueReport] { issueReports ?? [] }
+    var safeEquipmentItems: [Equipment] { requiredEquipmentItems ?? [] }
+
     var hasPreparation: Bool {
-        (preparationNotes != nil && !preparationNotes!.isEmpty) ||
-        !requiredEquipment.isEmpty ||
-        !(requiredEquipmentItems ?? []).isEmpty
+        if let notes = preparationNotes, !notes.isEmpty { return true }
+        if !requiredEquipment.isEmpty { return true }
+        if !safeEquipmentItems.isEmpty { return true }
+        return false
+    }
+
+    var procedureStatus: ProcedureStatus {
+        get { ProcedureStatus(rawValue: status) ?? .published }
+        set { status = newValue.rawValue }
     }
 
     /// Returns true if the procedure hasn't been updated or reviewed in over 12 months.
@@ -53,7 +84,7 @@ final class Checklist {
 
     /// Ordered steps sorted by orderIndex.
     var orderedSteps: [ChecklistStep] {
-        (steps ?? []).sorted { $0.orderIndex < $1.orderIndex }
+        safeSteps.sorted { $0.orderIndex < $1.orderIndex }
     }
 
     init(
@@ -68,5 +99,22 @@ final class Checklist {
         self.lastUpdatedDate = Date()
         self.lastReviewedDate = Date()
         self.createdDate = Date()
+    }
+
+    // MARK: - Workflow Helpers
+
+    static func createWorkflow(name: String, procedures: [Checklist]) {
+        let id = UUID()
+        for (index, procedure) in procedures.enumerated() {
+            procedure.workflowID = id
+            procedure.workflowOrder = index
+            procedure.workflowName = name
+        }
+    }
+
+    func removeFromWorkflow() {
+        workflowID = nil
+        workflowOrder = 0
+        workflowName = nil
     }
 }

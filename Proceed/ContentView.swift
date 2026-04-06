@@ -4,10 +4,12 @@ import SwiftData
 struct ContentView: View {
     @Query(sort: \Checklist.title) private var checklists: [Checklist]
     @Query(sort: \ProcedureCategory.sortOrder) private var categories: [ProcedureCategory]
+    @Query(sort: \Folder.sortOrder) private var folders: [Folder]
     @Environment(\.modelContext) private var modelContext
     @State private var searchText = ""
     @State private var showSettings = false
     @State private var showNewChecklist = false
+    @State private var showWorkflowEditor = false
 
     private var filteredChecklists: [Checklist] {
         guard !searchText.isEmpty else { return checklists }
@@ -20,8 +22,13 @@ struct ContentView: View {
         filteredChecklists.filter(\.isEmergency)
     }
 
+    /// Checklists that are not in any folder (shown in category sections)
+    private var unfolderedChecklists: [Checklist] {
+        filteredChecklists.filter { !$0.isEmergency && $0.folder == nil }
+    }
+
     private var categorizedChecklists: [(ProcedureCategory, [Checklist])] {
-        let nonEmergency = filteredChecklists.filter { !$0.isEmergency }
+        let nonEmergency = unfolderedChecklists
         let grouped = Dictionary(grouping: nonEmergency) { $0.category?.id }
 
         var result: [(ProcedureCategory, [Checklist])] = []
@@ -38,6 +45,39 @@ struct ContentView: View {
         return result
     }
 
+    /// Workflows grouped by workflowID, sorted by first procedure's title
+    private var workflows: [(id: UUID, name: String, procedures: [Checklist])] {
+        let workflowChecklists = filteredChecklists.compactMap { checklist -> (UUID, Checklist)? in
+            guard let wid = checklist.workflowID else { return nil }
+            return (wid, checklist)
+        }
+        let grouped = Dictionary(grouping: workflowChecklists, by: \.0)
+        return grouped.map { (id, pairs) in
+            let procedures = pairs.map(\.1).sorted { $0.workflowOrder < $1.workflowOrder }
+            let name = procedures.first?.workflowName ?? "Workflow"
+            return (id: id, name: name, procedures: procedures)
+        }
+        .sorted { $0.name < $1.name }
+    }
+
+    /// Checklists within a specific folder, filtered by search
+    private func checklistsInFolder(_ folder: Folder) -> [Checklist] {
+        let items = folder.safeChecklists.filter { !$0.isEmergency }
+        let filtered: [Checklist]
+        if searchText.isEmpty {
+            filtered = items
+        } else {
+            filtered = items.filter { $0.title.localizedCaseInsensitiveContains(searchText) }
+        }
+        return filtered.sorted { $0.title < $1.title }
+    }
+
+    private func moveChecklist(id: String, toFolder folder: Folder?) {
+        guard let uuid = UUID(uuidString: id),
+              let checklist = checklists.first(where: { $0.id == uuid }) else { return }
+        checklist.folder = folder
+    }
+
     var body: some View {
         NavigationSplitView {
             List {
@@ -49,11 +89,86 @@ struct ContentView: View {
                             } label: {
                                 ChecklistRow(checklist: checklist)
                             }
+                            .draggable(checklist.id.uuidString)
                         }
                     } header: {
                         Label("Emergency", systemImage: "exclamationmark.triangle.fill")
                             .foregroundStyle(.red)
                             .font(.subheadline.weight(.bold))
+                    }
+                }
+
+                // Folders section
+                if !folders.isEmpty {
+                    Section {
+                        ForEach(folders) { folder in
+                            let folderItems = checklistsInFolder(folder)
+                            DisclosureGroup {
+                                if folderItems.isEmpty {
+                                    Text("No procedures")
+                                        .foregroundStyle(.secondary)
+                                        .font(.caption)
+                                } else {
+                                    ForEach(folderItems) { checklist in
+                                        NavigationLink {
+                                            ChecklistDetailView(checklist: checklist)
+                                        } label: {
+                                            ChecklistRow(checklist: checklist)
+                                        }
+                                        .draggable(checklist.id.uuidString)
+                                    }
+                                }
+                            } label: {
+                                Label {
+                                    HStack {
+                                        Text(folder.name)
+                                        Spacer()
+                                        Text("\(folderItems.count)")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                } icon: {
+                                    Image(systemName: folder.systemImage)
+                                }
+                            }
+                            .dropDestination(for: String.self) { items, _ in
+                                for id in items {
+                                    moveChecklist(id: id, toFolder: folder)
+                                }
+                                return !items.isEmpty
+                            }
+                        }
+                    } header: {
+                        Label("Folders", systemImage: "folder.fill")
+                    }
+                }
+
+                // Workflows section
+                if !workflows.isEmpty {
+                    Section {
+                        ForEach(workflows, id: \.id) { workflow in
+                            NavigationLink {
+                                WorkflowDetailView(
+                                    workflowID: workflow.id,
+                                    workflowName: workflow.name,
+                                    procedures: workflow.procedures
+                                )
+                            } label: {
+                                Label {
+                                    HStack {
+                                        Text(workflow.name)
+                                        Spacer()
+                                        Text("\(workflow.procedures.count)")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                } icon: {
+                                    Image(systemName: "arrow.triangle.branch")
+                                }
+                            }
+                        }
+                    } header: {
+                        Label("Workflows", systemImage: "arrow.triangle.branch")
                     }
                 }
 
@@ -65,21 +180,42 @@ struct ContentView: View {
                             } label: {
                                 ChecklistRow(checklist: checklist)
                             }
+                            .draggable(checklist.id.uuidString)
                         }
                     } header: {
-                        Label(category.name, systemImage: category.systemImage)
+                        if let emoji = category.emoji, !emoji.isEmpty {
+                            Label {
+                                Text(category.name)
+                            } icon: {
+                                Text(emoji)
+                            }
+                        } else {
+                            Label(category.name, systemImage: category.systemImage)
+                        }
+                    }
+                    .dropDestination(for: String.self) { items, _ in
+                        for id in items {
+                            moveChecklist(id: id, toFolder: nil)
+                        }
+                        return !items.isEmpty
                     }
                 }
 
-                // Equipment inventory link
+                // Management links
                 Section {
                     NavigationLink {
                         EquipmentInventoryView()
                     } label: {
                         Label("Equipment Inventory", systemImage: "wrench.and.screwdriver")
                     }
+
+                    NavigationLink {
+                        PendingApprovalsView()
+                    } label: {
+                        Label("Pending Approvals", systemImage: "checkmark.seal")
+                    }
                 } header: {
-                    Text("Inventory")
+                    Text("Management")
                 }
             }
             .listStyle(.sidebar)
@@ -89,6 +225,11 @@ struct ContentView: View {
                 ToolbarItem(placement: .primaryAction) {
                     Button { showNewChecklist = true } label: {
                         Label("New Procedure", systemImage: "plus")
+                    }
+                }
+                ToolbarItem(placement: .secondaryAction) {
+                    Button { showWorkflowEditor = true } label: {
+                        Label("Create Workflow", systemImage: "arrow.triangle.branch")
                     }
                 }
                 ToolbarItem(placement: .secondaryAction) {
@@ -108,7 +249,7 @@ struct ContentView: View {
                     )
                 }
             }
-            .sheet(isPresented: $showNewChecklist) {
+            .fullScreenCover(isPresented: $showNewChecklist) {
                 ChecklistEditorView()
                     .nightVisionAware()
             }
@@ -122,6 +263,11 @@ struct ContentView: View {
                         }
                 }
                 .nightVisionAware()
+            }
+            .sheet(isPresented: $showWorkflowEditor) {
+                NavigationStack {
+                    WorkflowEditorView()
+                }
             }
             .task {
                 SampleDataGenerator.populateIfNeeded(context: modelContext)
@@ -145,13 +291,25 @@ struct ChecklistRow: View {
         checklist.orderedSteps.count
     }
 
+    @ViewBuilder
+    private var categoryIcon: some View {
+        if checklist.isEmergency {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.title3)
+                .foregroundStyle(.red)
+        } else if let emoji = checklist.category?.emoji, !emoji.isEmpty {
+            Text(emoji)
+                .font(.title3)
+        } else {
+            Image(systemName: checklist.category?.systemImage ?? "folder.fill")
+                .font(.title3)
+                .foregroundStyle(Color.accentColor)
+        }
+    }
+
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: checklist.isEmergency
-                  ? "exclamationmark.triangle.fill"
-                  : checklist.category?.systemImage ?? "folder.fill")
-                .font(.title3)
-                .foregroundStyle(checklist.isEmergency ? .red : .accentColor)
+            categoryIcon
                 .frame(width: 32, alignment: .center)
 
             VStack(alignment: .leading, spacing: 4) {

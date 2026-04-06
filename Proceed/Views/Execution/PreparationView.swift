@@ -10,8 +10,9 @@ struct PreparationView: View {
     private var allAcknowledged: Bool {
         let freeTextDone = checklist.requiredEquipment.isEmpty ||
             acknowledgedItems.count >= checklist.requiredEquipment.count
-        let inventoryDone = (checklist.requiredEquipmentItems ?? []).isEmpty ||
-            acknowledgedEquipment.count >= (checklist.requiredEquipmentItems ?? []).count
+        let inventoryItems = checklist.safeEquipmentItems
+        let inventoryDone = inventoryItems.isEmpty ||
+            acknowledgedEquipment.count >= inventoryItems.count
         return freeTextDone && inventoryDone
     }
 
@@ -48,9 +49,9 @@ struct PreparationView: View {
                     }
                 }
 
-                if let equipmentItems = checklist.requiredEquipmentItems, !equipmentItems.isEmpty {
+                if !checklist.safeEquipmentItems.isEmpty {
                     Section("From Inventory") {
-                        ForEach(equipmentItems) { item in
+                        ForEach(checklist.safeEquipmentItems) { item in
                             Button {
                                 if acknowledgedEquipment.contains(item.id) {
                                     acknowledgedEquipment.remove(item.id)
@@ -85,10 +86,13 @@ struct PreparationView: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .controlSize(.large)
-                    .disabled(!allAcknowledged)
                 } footer: {
                     if !allAcknowledged {
-                        Text("Acknowledge all equipment items to begin.")
+                        Label(
+                            "Some equipment items have not been acknowledged.",
+                            systemImage: "exclamationmark.triangle"
+                        )
+                        .foregroundStyle(.orange)
                     }
                 }
             }

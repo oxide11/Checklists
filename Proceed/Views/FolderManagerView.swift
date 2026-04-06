@@ -22,7 +22,7 @@ struct FolderManagerView: View {
                         .frame(width: 24)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(folder.name)
-                        let count = folder.checklists?.count ?? 0
+                        let count = folder.safeChecklists.count
                         Text("\(count) procedure\(count == 1 ? "" : "s")")
                             .font(.caption)
                             .foregroundStyle(.secondary)

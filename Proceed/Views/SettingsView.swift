@@ -150,6 +150,14 @@ struct SettingsView: View {
                 Text("Key Status")
             }
 
+            // MARK: iCloud & Sync
+
+            Section {
+                ShareStatusView()
+            } header: {
+                Text("iCloud & Sync")
+            }
+
             // MARK: About
 
             Section {

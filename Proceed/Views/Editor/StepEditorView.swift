@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftData
 import PhotosUI
 import AVFoundation
 import UniformTypeIdentifiers
@@ -6,10 +7,18 @@ import UniformTypeIdentifiers
 struct StepEditorView: View {
     @Binding var step: EditableStep
     let allSteps: [EditableStep]
+    @Query(sort: \Equipment.name) private var allEquipment: [Equipment]
 
     @State private var selectedPhotoItem: PhotosPickerItem? = nil
     @State private var showVideoPicker = false
     @State private var showAudioPicker = false
+    @State private var showReferencePicker = false
+    @State private var showFileSizeAlert = false
+
+    /// Maximum allowed file sizes (bytes)
+    private static let maxPhotoSize = 25_000_000      // 25 MB
+    private static let maxMediaFileSize = 100_000_000  // 100 MB
+    private static let maxReferenceSize = 10_000_000   // 10 MB
 
     /// Steps available as branch targets (excludes current step).
     private var targetableSteps: [(index: Int, step: EditableStep)] {
@@ -27,6 +36,8 @@ struct StepEditorView: View {
                 decisionLogicSection
             }
 
+            equipmentSection
+            referenceSection
             mediaSection
             metadataSection
         }
@@ -211,10 +222,8 @@ struct StepEditorView: View {
                     Spacer()
 
                     // Thumbnail for images
-                    if attachment.mediaType == .image, let data = attachment.fileData,
-                       let uiImage = UIImage(data: data) {
-                        Image(uiImage: uiImage)
-                            .resizable()
+                    if attachment.mediaType == .image, let data = attachment.fileData {
+                        CachedImage(data: data)
                             .scaledToFill()
                             .frame(width: 44, height: 44)
                             .clipShape(RoundedRectangle(cornerRadius: 6))
@@ -233,6 +242,11 @@ struct StepEditorView: View {
                 guard let newItem else { return }
                 Task {
                     if let data = try? await newItem.loadTransferable(type: Data.self) {
+                        guard data.count <= Self.maxPhotoSize else {
+                            showFileSizeAlert = true
+                            selectedPhotoItem = nil
+                            return
+                        }
                         let attachment = EditableMediaAttachment(
                             mediaType: .image,
                             fileName: "Photo \(step.mediaAttachments.count + 1).jpg",
@@ -266,9 +280,93 @@ struct StepEditorView: View {
         .fileImporter(isPresented: $showAudioPicker, allowedContentTypes: [.audio, .mp3, .mpeg4Audio]) { result in
             handleFileImport(result: result, mediaType: .audio)
         }
+        .alert("File Too Large", isPresented: $showFileSizeAlert) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("The selected file exceeds the maximum allowed size. Photos must be under 25 MB, media files under 100 MB, and reference files under 10 MB.")
+        }
+    }
+
+    // MARK: - Equipment Section
+
+    @ViewBuilder
+    private var equipmentSection: some View {
+        if !allEquipment.isEmpty {
+            Section {
+                ForEach(allEquipment) { item in
+                    Toggle(isOn: Binding(
+                        get: { step.requiredEquipmentIDs.contains(item.id) },
+                        set: { isOn in
+                            if isOn {
+                                step.requiredEquipmentIDs.append(item.id)
+                            } else {
+                                step.requiredEquipmentIDs.removeAll { $0 == item.id }
+                            }
+                        }
+                    )) {
+                        VStack(alignment: .leading) {
+                            Text(item.name)
+                            if !item.storageLocation.isEmpty {
+                                Text(item.storageLocation)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
+            } header: {
+                Text("Required Equipment")
+            } footer: {
+                Text("Select equipment needed for this step. Equipment details will be shown during execution.")
+            }
+        }
+    }
+
+    // MARK: - Reference Section
+
+    private var referenceSection: some View {
+        Section {
+            if !step.referenceFileName.isEmpty {
+                HStack {
+                    Label(step.referenceFileName, systemImage: "doc.fill")
+                    Spacer()
+                    Button("Remove", role: .destructive) {
+                        step.referenceFileName = ""
+                        step.referenceFileData = nil
+                    }
+                    .font(.caption)
+                }
+            }
+
+            Button { showReferencePicker = true } label: {
+                Label("Attach Reference File", systemImage: "doc.badge.plus")
+            }
+        } header: {
+            Text("Reference Material")
+        } footer: {
+            Text("Attach a PDF or text file containing reference material for this step.")
+        }
+        .fileImporter(isPresented: $showReferencePicker, allowedContentTypes: [.pdf, .plainText, .rtf]) { result in
+            handleReferenceImport(result: result)
+        }
     }
 
     // MARK: - Helpers
+
+    private func handleReferenceImport(result: Result<URL, Error>) {
+        guard case .success(let url) = result else { return }
+        guard url.startAccessingSecurityScopedResource() else { return }
+        defer { url.stopAccessingSecurityScopedResource() }
+
+        if let data = try? Data(contentsOf: url) {
+            guard data.count <= Self.maxReferenceSize else {
+                showFileSizeAlert = true
+                return
+            }
+            step.referenceFileName = url.lastPathComponent
+            step.referenceFileData = data
+        }
+    }
 
     private func stepPickerLabel(index: Int, step: EditableStep) -> String {
         let preview = step.text.isEmpty ? "Untitled" : String(step.text.prefix(35))
@@ -281,6 +379,10 @@ struct StepEditorView: View {
         defer { url.stopAccessingSecurityScopedResource() }
 
         if let data = try? Data(contentsOf: url) {
+            guard data.count <= Self.maxMediaFileSize else {
+                showFileSizeAlert = true
+                return
+            }
             let attachment = EditableMediaAttachment(
                 mediaType: mediaType,
                 fileName: url.lastPathComponent,
