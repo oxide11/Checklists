@@ -103,10 +103,6 @@ struct EditableChecklist {
         let checklist: Checklist
         if let existing {
             checklist = existing
-            // Remove old steps (cascade deletes media attachments)
-            for step in existing.orderedSteps {
-                context.delete(step)
-            }
         } else {
             checklist = Checklist()
             context.insert(checklist)
@@ -135,23 +131,45 @@ struct EditableChecklist {
             checklist.folder = nil
         }
 
-        // Create fresh steps with preserved IDs for branch targeting
+        // Partial-update step graph: reuse existing ChecklistStep instances by
+        // id so a small edit produces a small set of CloudKit updates instead
+        // of a full delete-and-recreate. Steps no longer present in the
+        // editable list are deleted (cascading to their media).
+        let existingStepsByID: [UUID: ChecklistStep] = Dictionary(
+            uniqueKeysWithValues: checklist.safeSteps.map { ($0.id, $0) }
+        )
+        let editableStepIDs = Set(steps.map(\.id))
+
+        for (id, existingStep) in existingStepsByID where !editableStepIDs.contains(id) {
+            context.delete(existingStep)
+        }
+
         for (index, editable) in steps.enumerated() {
-            let step = ChecklistStep(
-                stepType: editable.stepType,
-                text: editable.text,
-                orderIndex: index
-            )
-            step.id = editable.id
+            let step: ChecklistStep
+            if let reused = existingStepsByID[editable.id] {
+                step = reused
+            } else {
+                step = ChecklistStep()
+                step.id = editable.id
+                step.checklist = checklist
+                context.insert(step)
+            }
+
+            step.stepType = editable.stepType
+            step.text = editable.text
+            step.orderIndex = index
             step.note = editable.note.isEmpty ? nil : editable.note
             step.nextStepID = index + 1 < steps.count ? steps[index + 1].id : nil
 
-            // Decision-specific
+            // Decision-specific — clear when the type was changed away from decision.
             if editable.stepType == .decision {
                 step.question = editable.question.isEmpty ? nil : editable.question
                 step.branchOptions = editable.branchOptions.map {
                     BranchOption(id: $0.id, label: $0.label, targetStepID: $0.targetStepID)
                 }
+            } else {
+                step.question = nil
+                step.branchOptions = []
             }
 
             step.requiresAcknowledgment = editable.requiresAcknowledgment
@@ -161,20 +179,32 @@ struct EditableChecklist {
             step.requiredEquipmentIDs = editable.requiredEquipmentIDs
             step.referenceFileData = editable.referenceFileData
             step.referenceFileName = editable.referenceFileName.isEmpty ? nil : editable.referenceFileName
-            step.checklist = checklist
-            context.insert(step)
 
-            // Media attachments
+            // Media attachments — same id-keyed diff so the externalStorage
+            // blobs that didn't change aren't rewritten.
+            let existingMediaByID: [UUID: MediaAttachment] = Dictionary(
+                uniqueKeysWithValues: step.safeMediaAttachments.map { ($0.id, $0) }
+            )
+            let editableMediaIDs = Set(editable.mediaAttachments.map(\.id))
+
+            for (id, media) in existingMediaByID where !editableMediaIDs.contains(id) {
+                context.delete(media)
+            }
+
             for editableMedia in editable.mediaAttachments {
-                let attachment = MediaAttachment(
-                    mediaType: editableMedia.mediaType,
-                    fileName: editableMedia.fileName,
-                    fileData: editableMedia.fileData,
-                    caption: editableMedia.caption.isEmpty ? nil : editableMedia.caption
-                )
-                attachment.id = editableMedia.id
-                attachment.step = step
-                context.insert(attachment)
+                let media: MediaAttachment
+                if let reused = existingMediaByID[editableMedia.id] {
+                    media = reused
+                } else {
+                    media = MediaAttachment()
+                    media.id = editableMedia.id
+                    media.step = step
+                    context.insert(media)
+                }
+                media.mediaType = editableMedia.mediaType
+                media.fileName = editableMedia.fileName
+                media.fileData = editableMedia.fileData
+                media.caption = editableMedia.caption.isEmpty ? nil : editableMedia.caption
             }
         }
 
