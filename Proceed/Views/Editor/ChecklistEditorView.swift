@@ -9,13 +9,28 @@ struct ChecklistEditorView: View {
 
     let existingChecklist: Checklist?
     @State private var editable: EditableChecklist
+    @State private var originalSnapshot: EditableChecklist
     @State private var saveError: String? = nil
+    @State private var showDiscardConfirmation = false
 
     init(checklist: Checklist? = nil) {
         self.existingChecklist = checklist
-        self._editable = State(
-            initialValue: checklist.map { EditableChecklist(from: $0) } ?? EditableChecklist()
-        )
+        let initial = checklist.map { EditableChecklist(from: $0) } ?? EditableChecklist()
+        self._editable = State(initialValue: initial)
+        self._originalSnapshot = State(initialValue: initial)
+    }
+
+    /// True when the editor has unsaved changes vs the value loaded at open.
+    private var hasUnsavedChanges: Bool {
+        editable != originalSnapshot
+    }
+
+    private func cancelTapped() {
+        if hasUnsavedChanges {
+            showDiscardConfirmation = true
+        } else {
+            dismiss()
+        }
     }
 
     var body: some View {
@@ -31,7 +46,7 @@ struct ChecklistEditorView: View {
             #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    Button("Cancel") { cancelTapped() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
@@ -54,7 +69,18 @@ struct ChecklistEditorView: View {
             } message: {
                 Text(saveError ?? "")
             }
+            .confirmationDialog(
+                "Discard changes?",
+                isPresented: $showDiscardConfirmation,
+                titleVisibility: .visible
+            ) {
+                Button("Discard", role: .destructive) { dismiss() }
+                Button("Keep Editing", role: .cancel) {}
+            } message: {
+                Text("Your edits will be lost.")
+            }
         }
+        .interactiveDismissDisabled(hasUnsavedChanges)
     }
 
     // MARK: - Details Section

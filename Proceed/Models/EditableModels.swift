@@ -4,8 +4,9 @@ import SwiftData
 // MARK: - Editable Checklist
 
 /// Lightweight value-type mirror of `Checklist` used as @State in editors.
-/// Only persisted to SwiftData on explicit save.
-struct EditableChecklist {
+/// Only persisted to SwiftData on explicit save. Equatable so the editor can
+/// detect unsaved changes against the originally-loaded snapshot.
+struct EditableChecklist: Equatable {
     var title: String = ""
     var categoryID: UUID? = nil
     var folderID: UUID? = nil
@@ -237,7 +238,7 @@ struct EditableChecklist {
 
 // MARK: - Editable Step
 
-struct EditableStep: Identifiable {
+struct EditableStep: Identifiable, Equatable {
     var id: UUID = UUID()
     var stepType: StepType = .action
     var text: String = ""
@@ -275,7 +276,7 @@ struct EditableStep: Identifiable {
 
 // MARK: - Editable Branch Option
 
-struct EditableBranchOption: Identifiable {
+struct EditableBranchOption: Identifiable, Equatable {
     var id: UUID = UUID()
     var label: String = ""
     var targetStepID: UUID? = nil
@@ -294,7 +295,7 @@ struct EditableBranchOption: Identifiable {
 
 // MARK: - Editable Media Attachment
 
-struct EditableMediaAttachment: Identifiable {
+struct EditableMediaAttachment: Identifiable, Equatable {
     var id: UUID = UUID()
     var mediaType: MediaType = .image
     var fileName: String = ""
