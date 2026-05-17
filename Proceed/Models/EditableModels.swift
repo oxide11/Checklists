@@ -211,7 +211,7 @@ struct EditableChecklist: Equatable {
 
         // If checklist has approvers and this is an update, set to draft for review
         if isUpdate {
-            let hasApprovers = checklist.safeRoles.contains { $0.userRole == .approver }
+            let hasApprovers = checklist.safeRoles.contains { $0.role == .approver }
             if hasApprovers {
                 checklist.status = .draft
             }

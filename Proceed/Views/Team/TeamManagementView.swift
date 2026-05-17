@@ -23,16 +23,16 @@ struct TeamManagementView: View {
             }
 
             Section("Team Members") {
-                ForEach(roles) { role in
+                ForEach(roles) { member in
                     HStack(spacing: 12) {
-                        Image(systemName: role.userRole.systemImage)
-                            .foregroundStyle(role.userRole.color)
+                        Image(systemName: member.role.systemImage)
+                            .foregroundStyle(member.role.color)
                             .frame(width: 28)
 
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(role.displayName)
+                            Text(member.displayName)
                                 .font(.body.weight(.medium))
-                            Text(role.userIdentifier.isEmpty ? "Local" : role.userIdentifier)
+                            Text(member.userIdentifier.isEmpty ? "Local" : member.userIdentifier)
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -40,8 +40,8 @@ struct TeamManagementView: View {
                         Spacer()
 
                         Picker("Role", selection: Binding(
-                            get: { role.userRole },
-                            set: { newValue in role.userRole = newValue }
+                            get: { member.role },
+                            set: { newValue in member.role = newValue }
                         )) {
                             ForEach(UserRole.allCases) { userRole in
                                 Text(userRole.displayName).tag(userRole)

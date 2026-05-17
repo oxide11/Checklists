@@ -141,30 +141,31 @@ struct ChecklistOrderedStepsTests {
     }
 }
 
-// MARK: - ProcedureRole.userRole
+// MARK: - ProcedureRole.role
 
-@Suite("ProcedureRole.userRole")
+@Suite("ProcedureRole.role")
 @MainActor
-struct ProcedureRoleUserRoleTests {
+struct ProcedureRoleTests {
 
-    @Test("Valid role strings map correctly")
-    func validMapping() {
+    @Test("Initializer stores the role enum directly")
+    func initializerStoresRole() {
         let role = ProcedureRole(userIdentifier: "user1", displayName: "Alice", role: .editor)
-        #expect(role.userRole == .editor)
+        #expect(role.role == .editor)
     }
 
-    @Test("Invalid raw value falls back to viewer")
-    func invalidFallback() {
+    @Test("Default role is viewer")
+    func defaultIsViewer() {
         let role = ProcedureRole()
-        role.role = "superadmin"
-        #expect(role.userRole == .viewer)
+        #expect(role.role == .viewer)
     }
 
-    @Test("Setting userRole updates raw string")
-    func setUpdatesRaw() {
+    @Test("All UserRole cases can be assigned and read back")
+    func allCasesRoundTrip() {
         let role = ProcedureRole()
-        role.userRole = .approver
-        #expect(role.role == "approver")
+        for value in UserRole.allCases {
+            role.role = value
+            #expect(role.role == value)
+        }
     }
 }
 

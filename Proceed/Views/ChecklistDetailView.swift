@@ -64,7 +64,7 @@ struct ChecklistDetailView: View {
             }
 
             // MARK: Approval Actions (shown only when relevant)
-            if checklist.safeRoles.contains(where: { $0.userRole == .approver }) {
+            if checklist.safeRoles.contains(where: { $0.role == .approver }) {
                 if checklist.status == .draft || checklist.status == .rejected {
                     Section {
                         Button {
