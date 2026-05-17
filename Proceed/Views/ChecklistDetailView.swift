@@ -18,6 +18,7 @@ struct ChecklistDetailView: View {
     @State private var showApproval = false
     @State private var showShareSheet = false
     @State private var showShareError = false
+    @State private var statusSaveError: String? = nil
     @State private var preparationCompleted = false
     @State private var showChangeLog = false
     @State private var showIssues = false
@@ -363,6 +364,14 @@ struct ChecklistDetailView: View {
         } message: {
             Text(exportErrorMessage ?? "The procedure could not be exported. Please try again or choose a different format.")
         }
+        .alert(
+            "Couldn\u{2019}t Save Status Change",
+            isPresented: Binding(get: { statusSaveError != nil }, set: { if !$0 { statusSaveError = nil } })
+        ) {
+            Button("OK", role: .cancel) { statusSaveError = nil }
+        } message: {
+            Text(statusSaveError ?? "")
+        }
         .sheet(isPresented: $showChangeLog) {
             NavigationStack {
                 ChangeLogView(checklist: checklist)
@@ -425,6 +434,7 @@ struct ChecklistDetailView: View {
     }
 
     private func submitForReview() {
+        let previousStatus = checklist.status
         checklist.status = .pendingReview
 
         let logEntry = ChangeLogEntry(
@@ -435,6 +445,15 @@ struct ChecklistDetailView: View {
         )
         logEntry.checklist = checklist
         modelContext.insert(logEntry)
+
+        do {
+            try modelContext.save()
+        } catch {
+            // Roll back the in-memory mutation so the UI reflects reality.
+            checklist.status = previousStatus
+            modelContext.delete(logEntry)
+            statusSaveError = error.localizedDescription
+        }
     }
 
     // MARK: - Timer (Inline Mode)
