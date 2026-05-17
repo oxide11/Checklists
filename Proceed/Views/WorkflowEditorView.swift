@@ -4,12 +4,13 @@ import SwiftData
 struct WorkflowEditorView: View {
     @Query(sort: \Checklist.title) private var allChecklists: [Checklist]
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
     @State private var workflowName = ""
     @State private var selectedIDs: [UUID] = []
 
     /// Only show checklists not already in a workflow
     private var availableChecklists: [Checklist] {
-        allChecklists.filter { $0.workflowID == nil }
+        allChecklists.filter { $0.workflow == nil }
     }
 
     private var canCreate: Bool {
@@ -120,7 +121,8 @@ struct WorkflowEditorView: View {
 
         Checklist.createWorkflow(
             name: workflowName.trimmingCharacters(in: .whitespaces),
-            procedures: procedures
+            procedures: procedures,
+            in: modelContext
         )
         dismiss()
     }

@@ -34,11 +34,10 @@ final class Checklist {
     var roles: [ProcedureRole]? = []
 
     // Workflow (procedure chaining)
-    var workflowID: UUID? = nil
+    var workflow: Workflow? = nil
     var workflowOrder: Int = 0
-    var workflowName: String? = nil
 
-    var isInWorkflow: Bool { workflowID != nil }
+    var isInWorkflow: Bool { workflow != nil }
 
     // Preparation
     var preparationNotes: String? = nil
@@ -103,18 +102,32 @@ final class Checklist {
 
     // MARK: - Workflow Helpers
 
-    static func createWorkflow(name: String, procedures: [Checklist]) {
-        let id = UUID()
+    /// Creates a new Workflow grouping the given procedures, in order, and inserts it
+    /// into the supplied context. Each procedure's `workflow` and `workflowOrder` are
+    /// updated to reflect membership.
+    @discardableResult
+    static func createWorkflow(
+        name: String,
+        procedures: [Checklist],
+        in context: ModelContext
+    ) -> Workflow {
+        let workflow = Workflow(name: name)
+        context.insert(workflow)
         for (index, procedure) in procedures.enumerated() {
-            procedure.workflowID = id
+            procedure.workflow = workflow
             procedure.workflowOrder = index
-            procedure.workflowName = name
         }
+        return workflow
     }
 
-    func removeFromWorkflow() {
-        workflowID = nil
+    /// Removes this checklist from its workflow. If the workflow ends up empty, it is
+    /// deleted from the supplied context.
+    func removeFromWorkflow(in context: ModelContext) {
+        let oldWorkflow = workflow
+        workflow = nil
         workflowOrder = 0
-        workflowName = nil
+        if let oldWorkflow, oldWorkflow.safeProcedures.isEmpty {
+            context.delete(oldWorkflow)
+        }
     }
 }

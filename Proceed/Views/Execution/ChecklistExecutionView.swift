@@ -5,7 +5,6 @@ struct ChecklistExecutionView: View {
     let checklist: Checklist
     @Environment(\.dismiss) private var dismiss
     @Query(sort: \Equipment.name) private var allEquipment: [Equipment]
-    @Query(sort: \Checklist.title) private var allChecklists: [Checklist]
     @AppStorage("highlightCurrentStep") private var highlightCurrentStep = true
     @AppStorage("autoStartTimers") private var autoStartTimers = true
     @AppStorage("autoAdvanceOnTimerEnd") private var autoAdvanceOnTimerEnd = false
@@ -193,13 +192,11 @@ struct ChecklistExecutionView: View {
                 .foregroundStyle(.secondary)
 
             // Workflow context
-            if let workflowID = checklist.workflowID {
-                let siblings = allChecklists
-                    .filter { $0.workflowID == workflowID }
-                    .sorted { $0.workflowOrder < $1.workflowOrder }
+            if let workflow = checklist.workflow {
+                let siblings = workflow.orderedProcedures
                 let position = (siblings.firstIndex(where: { $0.id == checklist.id }) ?? 0) + 1
 
-                Text("Procedure \(position) of \(siblings.count) in \(checklist.workflowName ?? "Workflow")")
+                Text("Procedure \(position) of \(siblings.count) in \(workflow.name)")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .padding(.top, 4)

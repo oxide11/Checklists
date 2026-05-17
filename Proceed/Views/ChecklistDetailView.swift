@@ -4,7 +4,6 @@ import SwiftData
 struct ChecklistDetailView: View {
     let checklist: Checklist
     @Query(sort: \Equipment.name) private var allEquipment: [Equipment]
-    @Query(sort: \Checklist.title) private var allChecklists: [Checklist]
     @Environment(\.modelContext) private var modelContext
     @State private var showEditor = false
     @State private var showExecution = false
@@ -164,13 +163,11 @@ struct ChecklistDetailView: View {
                             .foregroundStyle(.secondary)
 
                         // Workflow context
-                        if let workflowID = checklist.workflowID {
-                            let siblings = allChecklists
-                                .filter { $0.workflowID == workflowID }
-                                .sorted { $0.workflowOrder < $1.workflowOrder }
+                        if let workflow = checklist.workflow {
+                            let siblings = workflow.orderedProcedures
                             let position = (siblings.firstIndex(where: { $0.id == checklist.id }) ?? 0) + 1
 
-                            Text("Procedure \(position) of \(siblings.count) in \(checklist.workflowName ?? "Workflow")")
+                            Text("Procedure \(position) of \(siblings.count) in \(workflow.name)")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                                 .padding(.top, 4)
