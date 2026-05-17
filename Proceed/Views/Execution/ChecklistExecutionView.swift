@@ -259,6 +259,13 @@ struct ChecklistExecutionView: View {
                 try? await Task.sleep(for: .seconds(1.5))
                 guard !Task.isCancelled else { return }
                 await MainActor.run {
+                    // Only advance if the user is still on this step — they may have
+                    // already completed it manually or navigated away during the
+                    // banner delay.
+                    guard engine.currentStepID == step.id else {
+                        showAutoAdvanceBanner = false
+                        return
+                    }
                     withAnimation {
                         showAutoAdvanceBanner = false
                         stopTimer()

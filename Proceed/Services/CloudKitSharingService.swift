@@ -110,6 +110,7 @@ struct CloudSharingSheet: UIViewControllerRepresentable {
 struct ShareStatusView: View {
     @State private var accountAvailable = false
     @State private var checked = false
+    private let service = CloudKitSharingService.shared
 
     var body: some View {
         VStack(spacing: 12) {
@@ -129,7 +130,7 @@ struct ShareStatusView: View {
                     .foregroundStyle(.red)
                     .font(.subheadline.weight(.medium))
 
-                Text("Sign in to iCloud in Settings to enable sync and sharing.")
+                Text(service.errorMessage ?? "Sign in to iCloud in Settings to enable sync and sharing.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -137,7 +138,7 @@ struct ShareStatusView: View {
         }
         .padding()
         .task {
-            accountAvailable = await CloudKitSharingService.shared.checkAccountStatus()
+            accountAvailable = await service.checkAccountStatus()
             checked = true
         }
     }
