@@ -46,10 +46,20 @@ final class Checklist {
     var requiredEquipment: [String] {
         get {
             guard let data = requiredEquipmentData else { return [] }
-            return (try? JSONDecoder().decode([String].self, from: data)) ?? []
+            do {
+                return try JSONDecoder().decode([String].self, from: data)
+            } catch {
+                ProceedLog.persistence.error("Checklist.requiredEquipment decode failed for \(self.id, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                return []
+            }
         }
         set {
-            requiredEquipmentData = try? JSONEncoder().encode(newValue)
+            do {
+                requiredEquipmentData = try JSONEncoder().encode(newValue)
+            } catch {
+                ProceedLog.persistence.error("Checklist.requiredEquipment encode failed: \(error.localizedDescription, privacy: .public)")
+                requiredEquipmentData = nil
+            }
         }
     }
 

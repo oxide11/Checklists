@@ -27,10 +27,20 @@ final class ChangeLogEntry {
     var fieldChanges: [FieldChange] {
         get {
             guard let data = fieldChangesData else { return [] }
-            return (try? JSONDecoder().decode([FieldChange].self, from: data)) ?? []
+            do {
+                return try JSONDecoder().decode([FieldChange].self, from: data)
+            } catch {
+                ProceedLog.persistence.error("ChangeLogEntry.fieldChanges decode failed for entry \(self.id, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                return []
+            }
         }
         set {
-            fieldChangesData = try? JSONEncoder().encode(newValue)
+            do {
+                fieldChangesData = try JSONEncoder().encode(newValue)
+            } catch {
+                ProceedLog.persistence.error("ChangeLogEntry.fieldChanges encode failed: \(error.localizedDescription, privacy: .public)")
+                fieldChangesData = nil
+            }
         }
     }
 

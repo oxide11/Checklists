@@ -32,10 +32,20 @@ final class ChecklistStep {
     var requiredEquipmentIDs: [UUID] {
         get {
             guard let data = requiredEquipmentIDsData else { return [] }
-            return (try? JSONDecoder().decode([UUID].self, from: data)) ?? []
+            do {
+                return try JSONDecoder().decode([UUID].self, from: data)
+            } catch {
+                ProceedLog.persistence.error("ChecklistStep.requiredEquipmentIDs decode failed for step \(self.id, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                return []
+            }
         }
         set {
-            requiredEquipmentIDsData = try? JSONEncoder().encode(newValue)
+            do {
+                requiredEquipmentIDsData = try JSONEncoder().encode(newValue)
+            } catch {
+                ProceedLog.persistence.error("ChecklistStep.requiredEquipmentIDs encode failed: \(error.localizedDescription, privacy: .public)")
+                requiredEquipmentIDsData = nil
+            }
         }
     }
 
@@ -57,10 +67,20 @@ final class ChecklistStep {
     var branchOptions: [BranchOption] {
         get {
             guard let data = branchOptionsData else { return [] }
-            return (try? JSONDecoder().decode([BranchOption].self, from: data)) ?? []
+            do {
+                return try JSONDecoder().decode([BranchOption].self, from: data)
+            } catch {
+                ProceedLog.persistence.error("ChecklistStep.branchOptions decode failed for step \(self.id, privacy: .public): \(error.localizedDescription, privacy: .public) — branch routing may be lost")
+                return []
+            }
         }
         set {
-            branchOptionsData = try? JSONEncoder().encode(newValue)
+            do {
+                branchOptionsData = try JSONEncoder().encode(newValue)
+            } catch {
+                ProceedLog.persistence.error("ChecklistStep.branchOptions encode failed: \(error.localizedDescription, privacy: .public)")
+                branchOptionsData = nil
+            }
         }
     }
 
