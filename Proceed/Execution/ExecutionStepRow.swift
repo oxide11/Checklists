@@ -78,6 +78,16 @@ struct ExecutionStepRow: View {
                     .foregroundStyle(.secondary)
             }
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilityIndicatorLabel)
+    }
+
+    private var accessibilityIndicatorLabel: String {
+        switch state {
+        case .completed: "Step \(index), completed"
+        case .current: "Step \(index), current"
+        case .upcoming: "Step \(index), upcoming"
+        }
     }
 
     @ViewBuilder

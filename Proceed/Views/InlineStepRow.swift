@@ -76,19 +76,24 @@ struct InlineStepRow: View {
 
     @ViewBuilder
     private var completionIndicator: some View {
-        if isCompleted {
-            Image(systemName: "checkmark.circle.fill")
-                .font(.title2)
-                .foregroundStyle(.green)
-        } else if isCurrent {
-            Image(systemName: step.stepType.systemImage)
-                .font(.title2)
-                .foregroundStyle(step.stepType == .action ? Color.accentColor : step.stepType.color)
-        } else {
-            Image(systemName: "circle")
-                .font(.title2)
-                .foregroundStyle(.secondary)
+        Group {
+            if isCompleted {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.title2)
+                    .foregroundStyle(.green)
+            } else if isCurrent {
+                Image(systemName: step.stepType.systemImage)
+                    .font(.title2)
+                    .foregroundStyle(step.stepType == .action ? Color.accentColor : step.stepType.color)
+            } else {
+                Image(systemName: "circle")
+                    .font(.title2)
+                    .foregroundStyle(.secondary)
+            }
         }
+        .accessibilityLabel(
+            isCompleted ? "Completed" : (isCurrent ? "Current step" : "Upcoming step")
+        )
     }
 
     // MARK: - Equipment Display

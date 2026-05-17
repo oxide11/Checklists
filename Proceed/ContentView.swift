@@ -327,6 +327,18 @@ struct ChecklistRow: View {
             }
         }
         .padding(.vertical, 2)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(accessibilityRowLabel)
+    }
+
+    private var accessibilityRowLabel: String {
+        var parts: [String] = []
+        if checklist.isEmergency { parts.append("Emergency") }
+        parts.append(checklist.title)
+        parts.append(checklist.versionNumber)
+        parts.append("\(stepCount) steps")
+        if checklist.isOutdated { parts.append("review due") }
+        return parts.joined(separator: ", ")
     }
 }
 

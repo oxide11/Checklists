@@ -130,6 +130,12 @@ struct StepEditorView: View {
                         }
                     }
                     .font(.subheadline)
+
+                    if let warning = branchWarning(for: option) {
+                        Label(warning, systemImage: "exclamationmark.triangle.fill")
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                    }
                 }
                 .padding(.vertical, 4)
             }
@@ -371,6 +377,19 @@ struct StepEditorView: View {
     private func stepPickerLabel(index: Int, step: EditableStep) -> String {
         let preview = step.text.isEmpty ? "Untitled" : String(step.text.prefix(35))
         return "Step \(index + 1): \(preview)"
+    }
+
+    private func branchWarning(for option: EditableBranchOption) -> String? {
+        if option.label.trimmingCharacters(in: .whitespaces).isEmpty {
+            return "Branch needs a label"
+        }
+        guard let target = option.targetStepID else {
+            return "Branch is unlinked \u{2014} execution will fall through to the next step"
+        }
+        if !allSteps.contains(where: { $0.id == target }) {
+            return "Target step no longer exists"
+        }
+        return nil
     }
 
     private func handleFileImport(result: Result<URL, Error>, mediaType: MediaType) {
