@@ -170,10 +170,12 @@ struct ChecklistEditorView: View {
             HStack {
                 Text("Steps (\(editable.steps.count))")
                 Spacer()
+                #if os(iOS)
                 if !editable.steps.isEmpty {
                     EditButton()
                         .font(.subheadline)
                 }
+                #endif
             }
         } footer: {
             if !editable.steps.isEmpty {

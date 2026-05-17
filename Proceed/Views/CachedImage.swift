@@ -7,9 +7,16 @@ struct CachedImage: View {
     let data: Data
 
     var body: some View {
+        #if canImport(UIKit)
         if let uiImage = UIImage(data: data) {
             Image(uiImage: uiImage)
                 .resizable()
         }
+        #else
+        if let nsImage = NSImage(data: data) {
+            Image(nsImage: nsImage)
+                .resizable()
+        }
+        #endif
     }
 }

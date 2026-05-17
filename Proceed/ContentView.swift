@@ -241,10 +241,17 @@ struct ContentView: View {
                     )
                 }
             }
+            #if canImport(UIKit)
             .fullScreenCover(isPresented: $showNewChecklist) {
                 ChecklistEditorView()
                     .nightVisionAware()
             }
+            #else
+            .sheet(isPresented: $showNewChecklist) {
+                ChecklistEditorView()
+                    .nightVisionAware()
+            }
+            #endif
             .sheet(isPresented: $showSettings) {
                 NavigationStack {
                     SettingsView()

@@ -42,6 +42,7 @@ final class CloudKitSharingService {
 
 // MARK: - CloudKit Sharing View Controller Wrapper
 
+#if canImport(UIKit)
 struct CloudSharingSheet: UIViewControllerRepresentable {
     let container: CKContainer
     let share: CKShare?
@@ -104,6 +105,7 @@ struct CloudSharingSheet: UIViewControllerRepresentable {
         }
     }
 }
+#endif
 
 // MARK: - Share Status View
 

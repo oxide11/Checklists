@@ -22,6 +22,7 @@ struct ChecklistDetailView: View {
     @State private var showChangeLog = false
     @State private var showIssues = false
     @State private var showTeam = false
+    @Environment(\.openURL) private var openURL
 
     // Timer state for inline check-off mode
     @State private var activeTimerStepID: UUID? = nil
@@ -297,12 +298,14 @@ struct ChecklistDetailView: View {
                     } label: {
                         Label("HTML", systemImage: "globe")
                     }
+                    #if canImport(UIKit)
                     Button {
                         exportFormat = .pdf
                         exportAndShare()
                     } label: {
                         Label("PDF", systemImage: "doc.richtext")
                     }
+                    #endif
                 } label: {
                     Label("Export", systemImage: "square.and.arrow.up")
                 }
@@ -322,9 +325,15 @@ struct ChecklistDetailView: View {
                 }
             }
         }
+        #if canImport(UIKit)
         .fullScreenCover(isPresented: $showExecution) {
             ChecklistExecutionView(checklist: checklist)
         }
+        #else
+        .sheet(isPresented: $showExecution) {
+            ChecklistExecutionView(checklist: checklist)
+        }
+        #endif
         .sheet(isPresented: $showPreparation, onDismiss: {
             if preparationCompleted {
                 preparationCompleted = false
@@ -336,15 +345,31 @@ struct ChecklistDetailView: View {
                 showPreparation = false
             }
         }
+        #if canImport(UIKit)
         .fullScreenCover(isPresented: $showEditor) {
             ChecklistEditorView(checklist: checklist)
                 .nightVisionAware()
         }
+        #else
+        .sheet(isPresented: $showEditor) {
+            ChecklistEditorView(checklist: checklist)
+                .nightVisionAware()
+        }
+        #endif
+        #if canImport(UIKit)
         .sheet(isPresented: $showExportShare) {
             if let url = exportFileURL {
                 ShareSheet(items: [url])
             }
         }
+        #else
+        .onChange(of: showExportShare) { _, newValue in
+            if newValue, let url = exportFileURL {
+                openURL(url)
+                showExportShare = false
+            }
+        }
+        #endif
         .sheet(isPresented: $showApproval) {
             ApprovalView(checklist: checklist)
         }
@@ -412,10 +437,14 @@ struct ChecklistDetailView: View {
                 try content.write(to: url, atomically: true, encoding: .utf8)
                 exportFileURL = url
             case .pdf:
+                #if canImport(UIKit)
                 let data = try ExportService.exportPDF(checklist: checklist)
                 let url = tempDir.appendingPathComponent("\(safeName).pdf")
                 try data.write(to: url)
                 exportFileURL = url
+                #else
+                throw ExportError.pdfGenerationFailed
+                #endif
             }
             showExportShare = true
         } catch {
@@ -622,6 +651,7 @@ struct StepRow: View {
 
 // MARK: - Share Sheet
 
+#if canImport(UIKit)
 struct ShareSheet: UIViewControllerRepresentable {
     let items: [Any]
 
@@ -631,6 +661,7 @@ struct ShareSheet: UIViewControllerRepresentable {
 
     func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
+#endif
 
 #Preview {
     NavigationStack {
