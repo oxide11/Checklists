@@ -278,6 +278,59 @@ struct ExecutionEngineDecisionGatingTests {
     }
 }
 
+// MARK: - Source-Change Detection
+
+@Suite("ExecutionEngine Source Change")
+@MainActor
+struct ExecutionEngineSourceChangeTests {
+
+    @Test("sourceHasChanged is false right after init")
+    func initiallyUnchanged() {
+        let checklist = makeChecklist(steps: [makeActionStep()])
+        let engine = ExecutionEngine(checklist: checklist)
+        #expect(engine.sourceHasChanged == false)
+    }
+
+    @Test("Mutating checklist.versionNumber flips sourceHasChanged")
+    func versionBumpFlipsFlag() {
+        let checklist = makeChecklist(steps: [makeActionStep()])
+        let engine = ExecutionEngine(checklist: checklist)
+        checklist.versionNumber = "v9.9"
+        #expect(engine.sourceHasChanged == true)
+    }
+
+    @Test("Mutating checklist.lastUpdatedDate flips sourceHasChanged")
+    func updatedDateFlipsFlag() {
+        let checklist = makeChecklist(steps: [makeActionStep()])
+        let engine = ExecutionEngine(checklist: checklist)
+        checklist.lastUpdatedDate = Date().addingTimeInterval(60)
+        #expect(engine.sourceHasChanged == true)
+    }
+
+    @Test("adoptLatestSource picks up new steps and clears the flag")
+    func adoptLatestRebuildsSnapshot() {
+        let original = makeActionStep(text: "Old only")
+        let checklist = makeChecklist(steps: [original])
+        let engine = ExecutionEngine(checklist: checklist)
+        engine.completeStep(original.id)
+
+        // Simulate an external edit: add a step, bump the version + date.
+        let added = makeActionStep(text: "New")
+        added.orderIndex = 1
+        added.checklist = checklist
+        checklist.steps = [original, added]
+        checklist.versionNumber = "v2.0"
+        checklist.lastUpdatedDate = Date().addingTimeInterval(60)
+
+        #expect(engine.sourceHasChanged == true)
+        engine.adoptLatestSource()
+        #expect(engine.sourceHasChanged == false)
+        #expect(engine.currentStepID == original.id)
+        #expect(engine.completedStepIDs.isEmpty)
+        #expect(engine.visibleSteps.count == 1)  // back at the frontier
+    }
+}
+
 // MARK: - Edge Cases
 
 @Suite("ExecutionEngine Edge Cases")

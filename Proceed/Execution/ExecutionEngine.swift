@@ -7,15 +7,32 @@ final class ExecutionEngine {
 
     // MARK: - Inputs
 
-    private let stepsByID: [UUID: ChecklistStep]
-    private let allOrderedSteps: [ChecklistStep]
-    private let firstStepID: UUID?
+    /// Strong reference to the source checklist. The engine snapshots the step
+    /// graph at init for determinism during a run, but keeps the reference so
+    /// it can detect (via sourceHasChanged) when an external edit or CloudKit
+    /// sync has invalidated the snapshot, and so adoptLatestSource() can
+    /// rebuild against the new version on operator request.
+    private let checklist: Checklist
+    private var snapshotVersion: String
+    private var snapshotUpdatedAt: Date
+    private var stepsByID: [UUID: ChecklistStep]
+    private var allOrderedSteps: [ChecklistStep]
+    private var firstStepID: UUID?
 
     // MARK: - Execution State
 
     private(set) var completedStepIDs: Set<UUID> = []
     private(set) var branchSelections: [UUID: UUID] = [:]
     private(set) var currentStepID: UUID?
+
+    /// True when the underlying Checklist has been edited (locally or via
+    /// CloudKit sync) since this engine was constructed. UIs should surface
+    /// this to the operator and offer to restart against the new version
+    /// rather than silently continue with stale steps.
+    var sourceHasChanged: Bool {
+        checklist.versionNumber != snapshotVersion
+            || checklist.lastUpdatedDate != snapshotUpdatedAt
+    }
 
     // MARK: - Computed
 
@@ -49,6 +66,9 @@ final class ExecutionEngine {
 
     init(checklist: Checklist) {
         let ordered = checklist.orderedSteps
+        self.checklist = checklist
+        self.snapshotVersion = checklist.versionNumber
+        self.snapshotUpdatedAt = checklist.lastUpdatedDate
         self.allOrderedSteps = ordered
         // Use last-wins merge to avoid crash if SwiftData sync produces duplicate IDs
         self.stepsByID = Dictionary(ordered.map { ($0.id, $0) }, uniquingKeysWith: { _, latest in latest })
@@ -74,8 +94,23 @@ final class ExecutionEngine {
         advanceFrom(step: step, selectedTargetID: targetStepID)
     }
 
-    /// Reset execution to the first step.
+    /// Reset execution to the first step of the current snapshot.
     func reset() {
+        completedStepIDs.removeAll()
+        branchSelections.removeAll()
+        currentStepID = firstStepID
+    }
+
+    /// Rebuilds the snapshot from the live Checklist and resets run state.
+    /// Use when the source has changed mid-execution and the operator wants
+    /// to restart against the updated procedure.
+    func adoptLatestSource() {
+        let ordered = checklist.orderedSteps
+        allOrderedSteps = ordered
+        stepsByID = Dictionary(ordered.map { ($0.id, $0) }, uniquingKeysWith: { _, latest in latest })
+        firstStepID = ordered.first?.id
+        snapshotVersion = checklist.versionNumber
+        snapshotUpdatedAt = checklist.lastUpdatedDate
         completedStepIDs.removeAll()
         branchSelections.removeAll()
         currentStepID = firstStepID

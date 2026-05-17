@@ -29,6 +29,10 @@ struct ChecklistExecutionView: View {
             VStack(spacing: 0) {
                 progressBar
 
+                if engine.sourceHasChanged {
+                    sourceChangedBanner
+                }
+
                 ScrollViewReader { proxy in
                     List {
 
@@ -149,6 +153,34 @@ struct ChecklistExecutionView: View {
             stopTimer()
         }
         .nightVisionAware()
+    }
+
+    // MARK: - Source-Changed Banner
+
+    private var sourceChangedBanner: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(.orange)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Procedure updated")
+                    .font(.subheadline.weight(.semibold))
+                Text("This procedure was edited since you started. Restart to use the latest version.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 8)
+            Button("Restart") {
+                stopTimer()
+                withAnimation { engine.adoptLatestSource() }
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.small)
+        }
+        .padding(.horizontal)
+        .padding(.vertical, 10)
+        .background(Color.orange.opacity(0.12))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Procedure updated. This procedure was edited since you started. Restart button available.")
     }
 
     // MARK: - Progress Bar
