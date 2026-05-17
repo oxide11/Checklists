@@ -3,7 +3,7 @@ import SwiftData
 
 struct PendingApprovalsView: View {
     @Query(
-        filter: #Predicate<Checklist> { $0.status == ProcedureStatus.pendingReview },
+        filter: #Predicate<Checklist> { $0.status.rawValue == "pendingReview" },
         sort: \Checklist.lastUpdatedDate,
         order: .reverse
     ) private var pendingChecklists: [Checklist]

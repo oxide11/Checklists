@@ -1,5 +1,6 @@
 import Foundation
 import SwiftData
+import os
 #if canImport(UIKit)
 import UIKit
 #endif

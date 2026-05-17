@@ -109,32 +109,8 @@ struct ChecklistDetailView: View {
 
             // MARK: Steps
             Section {
-                ForEach(Array(checklist.orderedSteps.enumerated()), id: \.element.id) { index, step in
-                    if inlineMode, let engine = inlineEngine {
-                        let stepEquipment = allEquipment.filter { step.requiredEquipmentIDs.contains($0.id) }
-                        InlineStepRow(
-                            step: step,
-                            index: index + 1,
-                            isCompleted: engine.completedStepIDs.contains(step.id),
-                            isCurrent: step.id == engine.currentStepID,
-                            requiredEquipment: stepEquipment,
-                            timerRemaining: activeTimerStepID == step.id ? timerRemaining : nil,
-                            timerRunning: activeTimerStepID == step.id,
-                            onComplete: {
-                                stopTimer()
-                                engine.completeStep(step.id)
-                            },
-                            onSelectBranch: { targetID in
-                                stopTimer()
-                                engine.selectBranch(on: step.id, targetStepID: targetID)
-                            },
-                            onStartTimer: {
-                                startTimer(for: step)
-                            }
-                        )
-                    } else {
-                        StepRow(step: step, index: index + 1)
-                    }
+                ForEach(Array(checklist.orderedSteps.enumerated()), id: \.element.id) { (index: Int, step: ChecklistStep) in
+                    stepRowView(step: step, index: index)
                 }
             } header: {
                 HStack {
@@ -553,6 +529,35 @@ struct ChecklistDetailView: View {
                         .foregroundStyle(.secondary)
                 }
             }
+        }
+    }
+
+    @ViewBuilder
+    private func stepRowView(step: ChecklistStep, index: Int) -> some View {
+        if inlineMode, let engine = inlineEngine {
+            let stepEquipment = allEquipment.filter { step.requiredEquipmentIDs.contains($0.id) }
+            InlineStepRow(
+                step: step,
+                index: index + 1,
+                isCompleted: engine.completedStepIDs.contains(step.id),
+                isCurrent: step.id == engine.currentStepID,
+                requiredEquipment: stepEquipment,
+                timerRemaining: activeTimerStepID == step.id ? timerRemaining : nil,
+                timerRunning: activeTimerStepID == step.id,
+                onComplete: {
+                    stopTimer()
+                    engine.completeStep(step.id)
+                },
+                onSelectBranch: { targetID in
+                    stopTimer()
+                    engine.selectBranch(on: step.id, targetStepID: targetID)
+                },
+                onStartTimer: {
+                    startTimer(for: step)
+                }
+            )
+        } else {
+            StepRow(step: step, index: index + 1)
         }
     }
 }
