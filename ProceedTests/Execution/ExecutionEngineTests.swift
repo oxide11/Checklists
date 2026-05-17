@@ -350,8 +350,8 @@ struct ExecutionEngineEdgeCaseTests {
         #expect(engine.currentStepID == b.id)
     }
 
-    @Test("Branch to a non-existent step yields no current step (frontier ends)")
-    func branchToMissingTargetEndsFrontier() {
+    @Test("Branch to a non-existent step is rejected — frontier unchanged")
+    func branchToMissingTargetRejected() {
         let phantomID = UUID()
         let decision = makeDecisionStep(
             text: "Choose",
@@ -361,22 +361,35 @@ struct ExecutionEngineEdgeCaseTests {
         let engine = ExecutionEngine(checklist: checklist)
 
         engine.selectBranch(on: decision.id, targetStepID: phantomID)
-        #expect(engine.currentStepID == nil)
-        #expect(engine.completedStepIDs.contains(decision.id))
+        // Missing target → engine refuses to navigate, leaves run state alone.
+        #expect(engine.currentStepID == decision.id)
+        #expect(engine.completedStepIDs.isEmpty)
     }
 
-    @Test("selectBranch on a non-decision step still records selection and advances")
-    func selectBranchOnActionStep() {
-        // Defensive behavior — UI shouldn't call selectBranch on actions, but engine
-        // shouldn't crash either. Document the actual behavior so we notice if it
-        // changes accidentally.
+    @Test("selectBranch on a non-decision step is rejected")
+    func selectBranchOnActionStepRejected() {
         let target = makeActionStep(text: "Target")
         let other = makeActionStep(text: "Other")
         let checklist = makeChecklist(steps: [other, target])
         let engine = ExecutionEngine(checklist: checklist)
 
         engine.selectBranch(on: other.id, targetStepID: target.id)
-        #expect(engine.currentStepID == target.id)
-        #expect(engine.completedStepIDs.contains(other.id))
+        // Engine refuses to branch from a non-decision step.
+        #expect(engine.currentStepID == other.id)
+        #expect(engine.completedStepIDs.isEmpty)
+    }
+
+    @Test("completeStep on a non-current step is rejected")
+    func completeOutOfOrderRejected() {
+        let a = makeActionStep(text: "A")
+        let b = makeActionStep(text: "B")
+        let c = makeActionStep(text: "C")
+        let checklist = makeChecklist(steps: [a, b, c])
+        let engine = ExecutionEngine(checklist: checklist)
+
+        // Attempt to complete c while currently on a.
+        engine.completeStep(c.id)
+        #expect(engine.currentStepID == a.id)
+        #expect(engine.completedStepIDs.isEmpty)
     }
 }

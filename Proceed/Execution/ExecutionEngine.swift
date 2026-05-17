@@ -80,15 +80,23 @@ final class ExecutionEngine {
 
     /// Complete an action, warning, or caution step — advances to the next linear step.
     /// Decision steps must be resolved via `selectBranch` and are rejected here.
+    /// Only the current frontier step can be completed; out-of-order calls are
+    /// rejected to defend against UI bugs marking upcoming or completed steps.
     func completeStep(_ stepID: UUID) {
-        guard let step = stepsByID[stepID], step.stepType != .decision else { return }
+        guard stepID == currentStepID,
+              let step = stepsByID[stepID],
+              step.stepType != .decision else { return }
         completedStepIDs.insert(stepID)
         advanceFrom(step: step, selectedTargetID: nil)
     }
 
     /// Select a branch on a decision step — advances to the branch target.
+    /// Rejects calls for any step other than the current frontier.
     func selectBranch(on decisionStepID: UUID, targetStepID: UUID) {
-        guard let step = stepsByID[decisionStepID] else { return }
+        guard decisionStepID == currentStepID,
+              let step = stepsByID[decisionStepID],
+              step.stepType == .decision,
+              stepsByID[targetStepID] != nil else { return }
         completedStepIDs.insert(decisionStepID)
         branchSelections[decisionStepID] = targetStepID
         advanceFrom(step: step, selectedTargetID: targetStepID)
