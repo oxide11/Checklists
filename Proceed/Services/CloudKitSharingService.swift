@@ -75,7 +75,9 @@ struct CloudSharingSheet: UIViewControllerRepresentable {
             }
         }
 
-        controller.availablePermissions = [.allowPublic, .allowReadWrite, .allowPrivate]
+        // .allowPublic is intentionally omitted — procedures are operationally
+        // sensitive and must not be sharable via a world-readable link.
+        controller.availablePermissions = [.allowPrivate, .allowReadWrite]
         controller.delegate = context.coordinator
         return controller
     }
