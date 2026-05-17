@@ -11,7 +11,7 @@ final class Checklist {
     var createdDate: Date = Date()
     var sortOrder: Int = 0
     var isEmergency: Bool = false
-    var status: String = "published"  // draft, pendingReview, approved, rejected, published
+    var status: ProcedureStatus = ProcedureStatus.published
 
     // Relationships
     @Relationship(inverse: \ProcedureCategory.checklists)
@@ -46,10 +46,20 @@ final class Checklist {
     var requiredEquipment: [String] {
         get {
             guard let data = requiredEquipmentData else { return [] }
-            return (try? JSONDecoder().decode([String].self, from: data)) ?? []
+            do {
+                return try JSONDecoder().decode([String].self, from: data)
+            } catch {
+                ProceedLog.persistence.error("Checklist.requiredEquipment decode failed for \(self.id, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                return []
+            }
         }
         set {
-            requiredEquipmentData = try? JSONEncoder().encode(newValue)
+            do {
+                requiredEquipmentData = try JSONEncoder().encode(newValue)
+            } catch {
+                ProceedLog.persistence.error("Checklist.requiredEquipment encode failed: \(error.localizedDescription, privacy: .public)")
+                requiredEquipmentData = nil
+            }
         }
     }
 
@@ -68,11 +78,6 @@ final class Checklist {
         return false
     }
 
-    var procedureStatus: ProcedureStatus {
-        get { ProcedureStatus(rawValue: status) ?? .published }
-        set { status = newValue.rawValue }
-    }
-
     /// Returns true if the procedure hasn't been updated or reviewed in over 12 months.
     var isOutdated: Bool {
         guard let cutoff = Calendar.current.date(byAdding: .month, value: -12, to: Date()) else {
@@ -81,9 +86,16 @@ final class Checklist {
         return lastReviewedDate < cutoff || lastUpdatedDate < cutoff
     }
 
-    /// Ordered steps sorted by orderIndex.
+    /// Ordered steps sorted by orderIndex, with step id as a deterministic
+    /// tiebreaker so concurrent CloudKit edits that collide on orderIndex
+    /// don't produce a non-deterministic execution order.
     var orderedSteps: [ChecklistStep] {
-        safeSteps.sorted { $0.orderIndex < $1.orderIndex }
+        safeSteps.sorted { lhs, rhs in
+            if lhs.orderIndex != rhs.orderIndex {
+                return lhs.orderIndex < rhs.orderIndex
+            }
+            return lhs.id.uuidString < rhs.id.uuidString
+        }
     }
 
     init(

@@ -91,39 +91,24 @@ struct ChecklistHasPreparationTests {
     }
 }
 
-// MARK: - Checklist.procedureStatus
+// MARK: - Checklist.status
 
-@Suite("Checklist.procedureStatus")
+@Suite("Checklist.status")
 @MainActor
-struct ChecklistProcedureStatusTests {
+struct ChecklistStatusTests {
 
     @Test("Default status is published")
     func defaultStatus() {
         let checklist = Checklist(title: "Test")
-        #expect(checklist.procedureStatus == .published)
+        #expect(checklist.status == .published)
     }
 
-    @Test("Setting draft updates raw string")
-    func setDraft() {
-        let checklist = Checklist(title: "Test")
-        checklist.procedureStatus = .draft
-        #expect(checklist.status == "draft")
-        #expect(checklist.procedureStatus == .draft)
-    }
-
-    @Test("Unknown raw value falls back to published")
-    func unknownRawValue() {
-        let checklist = Checklist(title: "Test")
-        checklist.status = "unknownStatus"
-        #expect(checklist.procedureStatus == .published)
-    }
-
-    @Test("All ProcedureStatus cases round-trip")
+    @Test("All ProcedureStatus cases can be assigned and read back")
     func allCasesRoundTrip() {
         let checklist = Checklist(title: "Test")
         for status in ProcedureStatus.allCases {
-            checklist.procedureStatus = status
-            #expect(checklist.procedureStatus == status)
+            checklist.status = status
+            #expect(checklist.status == status)
         }
     }
 }

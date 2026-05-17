@@ -272,11 +272,18 @@ struct ContentView: View {
                 SampleDataGenerator.populateIfNeeded(context: modelContext)
             }
         } detail: {
-            ContentUnavailableView(
-                "Select a Procedure",
-                systemImage: "checklist",
-                description: Text("Choose a procedure from the sidebar to begin.")
-            )
+            ContentUnavailableView {
+                Label("Select a Procedure", systemImage: "checklist")
+            } description: {
+                Text("Choose a procedure from the sidebar to begin, or create a new one.")
+            } actions: {
+                Button {
+                    showNewChecklist = true
+                } label: {
+                    Label("New Procedure", systemImage: "plus.circle.fill")
+                }
+                .buttonStyle(.borderedProminent)
+            }
         }
     }
 }
@@ -334,6 +341,18 @@ struct ChecklistRow: View {
             }
         }
         .padding(.vertical, 2)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(accessibilityRowLabel)
+    }
+
+    private var accessibilityRowLabel: String {
+        var parts: [String] = []
+        if checklist.isEmergency { parts.append("Emergency") }
+        parts.append(checklist.title)
+        parts.append(checklist.versionNumber)
+        parts.append("\(stepCount) steps")
+        if checklist.isOutdated { parts.append("review due") }
+        return parts.joined(separator: ", ")
     }
 }
 

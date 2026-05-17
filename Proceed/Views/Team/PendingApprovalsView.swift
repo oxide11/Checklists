@@ -2,9 +2,8 @@ import SwiftUI
 import SwiftData
 
 struct PendingApprovalsView: View {
-    // Note: #Predicate requires a string literal; matches ProcedureStatus.pendingReview.rawValue
     @Query(
-        filter: #Predicate<Checklist> { $0.status == "pendingReview" },
+        filter: #Predicate<Checklist> { $0.status == ProcedureStatus.pendingReview },
         sort: \Checklist.lastUpdatedDate,
         order: .reverse
     ) private var pendingChecklists: [Checklist]

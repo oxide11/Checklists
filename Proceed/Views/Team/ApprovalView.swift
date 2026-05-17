@@ -6,6 +6,7 @@ struct ApprovalView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @State private var comments = ""
+    @State private var saveError: String? = nil
 
     var body: some View {
         NavigationStack {
@@ -84,36 +85,60 @@ struct ApprovalView: View {
                     Button("Cancel") { dismiss() }
                 }
             }
+            .alert(
+                "Couldn\u{2019}t Save Decision",
+                isPresented: Binding(get: { saveError != nil }, set: { if !$0 { saveError = nil } })
+            ) {
+                Button("OK", role: .cancel) { saveError = nil }
+            } message: {
+                Text(saveError ?? "")
+            }
         }
     }
 
     private func approve() {
-        checklist.procedureStatus = .published
-
-        let logEntry = ChangeLogEntry(
+        applyDecision(
+            newStatus: .published,
             changeType: .approved,
-            summary: comments.isEmpty ? "Procedure approved and published" : "Approved: \(comments)",
-            previousVersionNumber: checklist.versionNumber,
-            newVersionNumber: checklist.versionNumber
+            summaryFallback: "Procedure approved and published",
+            summaryWithComments: "Approved: \(comments)"
         )
-        logEntry.checklist = checklist
-        modelContext.insert(logEntry)
-
-        dismiss()
     }
 
     private func reject() {
-        checklist.procedureStatus = .rejected
+        applyDecision(
+            newStatus: .rejected,
+            changeType: .rejected,
+            summaryFallback: "Procedure rejected",
+            summaryWithComments: "Rejected: \(comments)"
+        )
+    }
+
+    private func applyDecision(
+        newStatus: ProcedureStatus,
+        changeType: ChangeType,
+        summaryFallback: String,
+        summaryWithComments: String
+    ) {
+        let previousStatus = checklist.status
+        checklist.status = newStatus
 
         let logEntry = ChangeLogEntry(
-            changeType: .rejected,
-            summary: comments.isEmpty ? "Procedure rejected" : "Rejected: \(comments)",
+            changeType: changeType,
+            summary: comments.isEmpty ? summaryFallback : summaryWithComments,
             previousVersionNumber: checklist.versionNumber,
             newVersionNumber: checklist.versionNumber
         )
         logEntry.checklist = checklist
         modelContext.insert(logEntry)
 
-        dismiss()
+        do {
+            try modelContext.save()
+            dismiss()
+        } catch {
+            checklist.status = previousStatus
+            modelContext.delete(logEntry)
+            saveError = error.localizedDescription
+        }
     }
 }

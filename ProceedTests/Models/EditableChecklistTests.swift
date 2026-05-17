@@ -44,6 +44,42 @@ struct EditableChecklistIsValidTests {
         let ec = EditableChecklist()
         #expect(ec.isValid == false)
     }
+
+    @Test("Invalid when a decision step has no targeted branch")
+    func invalidDecisionWithoutTargetedBranch() {
+        var decision = EditableStep()
+        decision.stepType = .decision
+        decision.text = "Pick"
+        decision.branchOptions = [
+            EditableBranchOption(label: "Yes"),
+            EditableBranchOption(label: "No")
+        ]
+        var ec = EditableChecklist()
+        ec.title = "Test"
+        ec.steps = [decision]
+        #expect(ec.isValid == false)
+        #expect(ec.validationError?.contains("Decision step") == true)
+    }
+
+    @Test("Valid when a decision step has at least one targeted, labeled branch")
+    func validDecisionWithTargetedBranch() {
+        let targetID = UUID()
+        var target = EditableStep()
+        target.id = targetID
+        target.text = "Target"
+
+        var decision = EditableStep()
+        decision.stepType = .decision
+        decision.text = "Pick"
+        decision.branchOptions = [
+            EditableBranchOption(label: "Go", targetStepID: targetID),
+            EditableBranchOption(label: "Stay")  // unlabeled-target branch is fine if another has one
+        ]
+        var ec = EditableChecklist()
+        ec.title = "Test"
+        ec.steps = [decision, target]
+        #expect(ec.isValid == true)
+    }
 }
 
 // MARK: - EditableChecklist.autoIncrementPatch

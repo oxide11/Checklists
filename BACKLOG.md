@@ -1,6 +1,24 @@
 # Proceed — Backlog
 
-Snapshot of the app's state on branch `claude/review-and-backlog-HT7wr` (commit `e04905e`). Items are grouped by area and tagged with a rough severity: **P0** (correctness/safety), **P1** (real bug or visible UX gap), **P2** (polish/tech debt), **P3** (nice-to-have).
+Snapshot of the app's state on branch `claude/review-and-backlog-HT7wr`. Items are grouped by area and tagged with a rough severity: **P0** (correctness/safety), **P1** (real bug or visible UX gap), **P2** (polish/tech debt), **P3** (nice-to-have).
+
+---
+
+## Completed on this branch
+
+Items closed during the audit-and-fix pass (in commit order):
+
+- **Data integrity:** explicit `.nullify` deleteRule on `Folder.checklists`, `ProcedureCategory.checklists`, `Equipment.checklists`; regression tests cover all three.
+- **Execution semantics:** `ExecutionEngine.completeStep` refuses decision steps (forces `selectBranch`); tests updated and a guard test proves a rejected complete leaves no dirty state.
+- **Destructive UX:** swipe-to-delete on Folders/Categories/Equipment/Issues now routes through `.confirmationDialog` with a count-aware message.
+- **Save failures:** `EditableChecklist.save` and `IssueReportView.submit` call `context.save()` and throw; both editors catch and present the real error in an alert.
+- **Services hardening:** Keychain pins items to `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`; `ExportService.exportPDF` throws `ExportError` with real messages instead of silently returning empty `Data`; CloudKit error message reaches `ShareStatusView`.
+- **Workflow entity:** new `Workflow` `@Model` replaces the `workflowID`/`workflowName` string trio with a real relationship; `WorkflowDetailView` takes a `Workflow`; empty workflows are deleted on removal; tests cover create/cleanup/dissolve.
+- **`Checklist.status` as enum:** stored as `ProcedureStatus` directly; the silent-fallback `procedureStatus` computed property was removed; the `PendingApprovalsView` predicate compares against the enum case.
+- **UX wins:** `EquipmentInventoryView` empty state has an "Add Equipment" CTA; `StepEditorView` decision rows now warn when a branch has no label, is unlinked, or points at a deleted step.
+- **Accessibility:** `ExecutionStepRow` and `InlineStepRow` completion indicators announce their state; `ChecklistRow` collapses into a single VoiceOver utterance covering emergency / version / step count / review-due.
+- **Timer race:** `ChecklistExecutionView`'s auto-advance check verifies `engine.currentStepID == step.id` before firing, so manual completes or navigation during the banner delay don't get clobbered.
+- **Tests:** PDF export (`%PDF` magic + multi-step size); delete-rule regression for Folder/Category/Equipment; Workflow create/cleanup/no-cascade-to-procedures; engine edge cases (double-complete idempotency, branch-to-missing-target, selectBranch-on-action).
 
 ---
 
@@ -17,96 +35,50 @@ Snapshot of the app's state on branch `claude/review-and-backlog-HT7wr` (commit 
 
 ---
 
-## Data Layer
+## Open Items
 
-### P0
-- **Folder/Category delete leaves dangling references.** `Checklist.folder` (`Checklist.swift:19`) and `Checklist.category` (`:18`) have no explicit `deleteRule`. Deleting a Folder/Category leaves Checklists pointing at a tombstoned object; behavior under CloudKit sync is undefined. Set `.nullify` explicitly on the inverse declarations in `Folder.swift:11` and `Category.swift` (add a `@Relationship(deleteRule: .nullify, inverse: \Checklist.category)` on `ProcedureCategory.checklists`, currently missing the `@Relationship` decorator at `Category.swift:13`).
-- **Equipment ↔ Step orphan refs.** `ChecklistStep.requiredEquipmentIDsData` stores raw UUIDs (`ChecklistStep.swift:30-40`) with no FK enforcement; deleting an `Equipment` row leaves step requirements pointing at nothing. Either migrate to a real `@Relationship` or add a cleanup pass when Equipment is deleted.
+### Data Layer
 
-### P1
-- **Two parallel equipment representations.** `Checklist.requiredEquipment: [String]` (JSON-encoded names, `:47-55`) and `Checklist.requiredEquipmentItems: [Equipment]` (relationship, `:24-25`) both exist. `EditableChecklist.save` updates strings but doesn't sync the relationship. Pick one source of truth.
-- **`status` is a free-form `String`.** `Checklist.status` is documented to be a finite set (`Checklist.swift:14`) but stored as `String`. The `procedureStatus` computed property (`:72-75`) silently falls back to `.published` on bad input. Either store the enum directly or add a setter guard.
-- **Silent JSON failure on relationship-adjacent data.** `branchOptions`, `requiredEquipment`, `requiredEquipmentIDs`, `fieldChanges` all `?? []` on decode failure. A corrupt blob silently drops branch targets or audit history. At minimum log; ideally surface as a recoverable error in the editor.
+- **P1 — Two parallel equipment representations.** `Checklist.requiredEquipment: [String]` (JSON, `:47-55`) and `Checklist.requiredEquipmentItems: [Equipment]` (relationship, `:24-25`) both exist. `EditableChecklist.save` updates strings but doesn't sync the relationship. Product decision needed: ad-hoc text items + linked Equipment records as two distinct concepts, or collapse to one.
+- **P1 — Silent JSON decode failures.** `branchOptions`, `requiredEquipment`, `requiredEquipmentIDs`, `fieldChanges` all `?? []` on decode failure. A corrupt blob silently drops branch targets or audit history. Add `os.Logger` at the call sites at minimum.
+- **P2 — Equipment ↔ Step orphan refs.** `ChecklistStep.requiredEquipmentIDsData` stores raw UUIDs (`ChecklistStep.swift:30-40`) with no FK enforcement. Reads filter missing IDs (so display is fine), but the data bloats. Either migrate to a real many-to-many `@Relationship` on the step, or add a cleanup hook when Equipment is deleted.
+- **P2 — No soft-delete / archival.** All `.cascade` deletes are permanent. ChangeLog survives but the steps it references don't, so audit entries become orphans referencing a missing step.
+- **P2 — `MediaAttachment` orphan window.** Cascade fires on step delete, but a user removing media mid-edit before save leaves the in-memory `EditableMediaAttachment` removed and the underlying `MediaAttachment` blob untouched until save replaces all steps.
+- **P2 — `ProcedureRole` permissions are display-only.** Viewer/editor/approver tags exist but no code path enforces them.
+- **P3 — `EditableModels` duplicates every field.** Maintenance cost grows linearly with the schema. Worth revisiting with codegen or a protocol once the model stabilizes.
 
-### P2
-- **Branch targets unvalidated.** `BranchOption.targetStepID` is a UUID with no constraint that it points at a step in the same checklist (`ChecklistStep.swift:57-65`). Editor should validate; engine already cycle-guards but happily walks to a missing target → execution dead-ends.
-- **No soft-delete / archival.** All `.cascade` deletes are permanent. ChangeLog survives but the steps it references don't, so audit entries become orphans.
-- **`createWorkflow` lives on `Checklist` as a static func** (`:106-113`), mutating `workflowID/Order/Name` directly with no Workflow entity. Querying "which checklists are in workflow X" requires scanning all checklists. Consider a `Workflow` model.
-- **`MediaAttachment` orphaning on in-place edits.** Cascade fires on step delete, but if a user removes media during an edit the orphaned blob persists.
-- **`ProcedureRole` has no permission enforcement.** Roles exist as labels only; viewer/editor distinctions are not honored anywhere.
+### Execution
 
-### P3
-- **`EditableModels` duplicates every field** of the underlying SwiftData models (`EditableModels.swift`). Maintenance cost grows with each new field. Consider a code-gen or protocol approach when the schema stabilizes.
+- **P1 — `isCriticalFailure` is display-only.** Renders as a badge but the engine never gates on it. Product decision: should marking a step critical force a separate acknowledgment / signature before passing, or is "critical" just a visual cue?
+- **P1 — Timer logic lives in the view.** `ChecklistExecutionView.swift:236-273` owns the timer task, so the auto-advance flow isn't unit-testable. Moving it into `ExecutionEngine` (with a callback for view-side bookkeeping) would close the gap.
+- **P2 — Inline-mode timer duplicates the view timer.** `ChecklistDetailView.swift:453-464` runs its own copy of the same pattern. Will be obsoleted by moving timer state into the engine.
 
----
+### Views & UX
 
-## Execution
+- **P1 — Detail pane is a dead end.** `ContentView.swift:276-280` shows only `ContentUnavailableView` in the detail column — no recently-opened list, no "create your first" CTA.
+- **P2 — Stacked presentation modifiers.** `ChecklistDetailView` carries eight sheet/fullScreenCover modifiers. Works today, but an enum-driven presentation route would prevent accidental double-toggles.
+- **P2 — Remaining accessibility gaps.** Settings toggles (`SettingsView.swift:22-48`) and the "procedure complete" banner still need labels/hints. (Completion indicators and `ChecklistRow` were covered.)
+- **P2 — Step row duplication.** `InlineStepRow` (319 lines) and `ExecutionStepRow` (370 lines) implement the same timer / equipment / media / branch UI twice. Unify with a `DisplayMode` enum on a single row.
+- **P3 — `@AppStorage` re-read every body eval** in `ChecklistExecutionView.swift:9-12`. Cheap; worth a `@State` cache only if profiling flags it.
+- **P3 — `@Query` per-step filter** in execution views fetches all equipment per row. Scope the query when the equipment count grows.
 
-### P0
-- **Decision-step "complete without choosing" is possible at the engine level.** `completeStep` on a `.decision` step inserts the ID into `completedStepIDs` but doesn't advance (`ExecutionEngine.swift:62-68`). The UI is expected to call `selectBranch` instead, but the engine itself doesn't reject the misuse. Add a guard or split the API so decision steps can only be completed via `selectBranch`.
+### Services & Infrastructure
 
-### P1
-- **Critical-step gating is display-only.** `ChecklistStep.isCriticalFailure` (`:27`) renders a badge in `ExecutionStepRow.swift:233-237` but is not consulted by the engine. If the product intent is "user must explicitly confirm before passing a critical step," that gate doesn't exist.
-- **Timer logic lives entirely in the view** (`ChecklistExecutionView.swift:236-273`) — not engine-owned, so untestable. The view-disappear cancellation works, but there's still a race window between `.onDisappear` and the next `MainActor.run` if the user dismisses mid-tick.
+- **P1 — `CloudKitSharingService` is a UI shim.** `CloudSharingSheet` (`:45-106`) wraps `UICloudSharingController` and delegates record creation to a caller-supplied closure. There's no persistence of who's sharing what, no share-acceptance handling, no participant management. The file's name still overpromises.
 
-### P2
-- **Inline-mode timer leak risk.** `ChecklistDetailView.swift:453-464` has the same view-owned timer pattern, with `.onDisappear { stopTimer() }` at `:221`. Safe today but two copies of the same fragile pattern.
+### Tests
 
----
-
-## Views & UX
-
-### P1
-- **Destructive deletes have no confirmation.** Folders (`FolderManagerView.swift:32-36`), categories (`CategoryManagerView.swift:42-48`), equipment (`EquipmentInventoryView.swift:45-47`), and issue reports (`IssueListView.swift:24-29`) all delete on swipe with no confirmation. Cascade rules can wipe linked checklists. Wrap in `.confirmationDialog` like `WorkflowDetailView.swift:71-85` already does.
-- **Silent save failures.** `ChecklistEditorView.swift:36-39` calls `editable.save(...)` and immediately dismisses. If SwiftData throws, the user never knows. Same pattern in `IssueReportView.swift:123`.
-- **No error feedback on export failure.** `ChecklistDetailView.swift:400-429` exports synchronously; only a generic alert if URL never gets set. PDF generation in `ExportService.exportPDF` (`:194-223`) returns `Data?` and swallows context-creation failures (no logging, no thrown error).
-- **Empty states without CTA.** `EquipmentInventoryView` shows `ContentUnavailableView` but no "New Equipment" button (`:29-34`). Settings shows no CTA when zero API keys are saved (`:135-151`).
-- **Detail pane is a dead end.** `ContentView.swift:276-280` shows only `ContentUnavailableView` in the detail column — no recently-opened, no "create your first" CTA.
-
-### P2
-- **`ShareStatusView` referenced but coordination unclear.** Used inline in `SettingsView.swift:156`; if it surfaces "Enable sharing" actions, there's no sheet/cover wiring between it and `CloudKitSharingService.CloudSharingSheet`.
-- **Stacked presentation modifiers.** `ChecklistDetailView` carries 8 sheet/fullScreenCover modifiers (`:327-397`). Works today but a single mistake on two `isPresented` flags toggling together produces undefined behavior. Consider an enum-driven presentation route.
-- **Accessibility gaps.** Completion checkmarks (`InlineStepRow.swift:79-91`), settings toggles (`SettingsView.swift:22-48`), and the "procedure complete" banner have no `.accessibilityLabel`/`.accessibilityHint`.
-- **Step row duplication.** `InlineStepRow.swift` (319 lines) and `ExecutionStepRow.swift` (351 lines) implement the same timer / equipment / media / branch UI twice. Unify with a `DisplayMode` enum on a single row.
-
-### P3
-- **`@AppStorage` re-read every body eval** in `ChecklistExecutionView.swift:9-12`. Cheap, but worth a `@State` cache if profiling shows it.
-- **`@Query` re-fetch noise.** `ChecklistDetailView.swift:6-7` and `ChecklistExecutionView.swift:7-8` both run `@Query` for all equipment/all checklists then filter per-step. Could be scoped.
+- **P1 — No UI/integration tests.** Engine logic is well-covered, but the SwiftUI view layer (sheet/cover state, timer auto-advance triggering, branch selection from a tap) is untested. Requires an XCUITest target or a ViewInspector-style harness.
+- **P2 — `EditableChecklistSaveTests` doesn't cover delete cascades** — adding a step, then removing it, then saving — and doesn't exercise the new `try context.save()` failure path.
 
 ---
 
-## Services & Infrastructure
+## Suggested Next Sprint
 
-### P1
-- **Keychain accessibility class unset.** `KeychainService.swift:31-36` omits `kSecAttrAccessible`. Default is `kSecAttrAccessibleWhenUnlocked` — fine for security but means API keys are unreadable while the device is locked (e.g., background sync). For aviation/field use, consider `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly` explicitly.
-- **`CloudKitSharingService` is a UI shim, not a sharing service.** `CloudSharingSheet` (`:45-106`) wraps `UICloudSharingController` and delegates record creation to a caller-supplied closure. There's no persistence of who's sharing what, no share-acceptance handling, no participant management — the file's name overpromises.
-- **PDF export error path is dead.** `ExportService.exportPDF` returns `nil` silently on context failure (`:213-222`), and callers can't distinguish "empty checklist" from "PDF subsystem broken."
+The highest-leverage remaining work, in order:
 
-### P2
-- **`CloudKitSharingService.checkAccountStatus` swallows the error** (`:33-39`); if the underlying `accountStatus()` throws inside a detached task, no signal reaches the user.
-
----
-
-## Tests
-
-### P1
-- **No UI/integration tests.** The execution UI, timer auto-advance, branch selection from a tap, sheet/cover state — all untested. Add a small `@MainActor` XCTest target that drives `ChecklistExecutionView` through a scripted procedure.
-- **No PDF export test.** `ExportServiceTests` cover Markdown (13) and HTML (8) thoroughly but skip PDF entirely.
-- **No CloudKit / sharing tests.** Not unexpected (hard to mock) but the gap is worth flagging.
-
-### P2
-- **No negative-path tests** for execution: completing a step while a timer is mid-tick, attempting to complete a decision twice, ordering edge cases when `orderIndex` ties.
-- **`EditableChecklistSaveTests` doesn't cover delete cascades** — adding a step then removing it then saving.
-
----
-
-## Suggested Sprint Order
-
-If picking up where this branch leaves off, the highest-leverage order is:
-
-1. **P0 cluster: data integrity** — explicit `deleteRule`s on `folder`/`category`/`equipment` relationships, and decide on a single source of truth for equipment.
-2. **P0/P1 execution semantics** — gate decision-step completion in the engine, decide whether `isCriticalFailure` should block.
-3. **P1 destructive-action confirmations + silent-save error surfacing** — small, visible quality wins.
-4. **P1 services** — set keychain accessibility class, surface PDF/CloudKit errors.
-5. **P1 tests** — UI-level execution test + PDF export test.
-6. **P2 refactors** — unify `InlineStepRow` and `ExecutionStepRow`; introduce a `Workflow` entity.
+1. **Move timer state into `ExecutionEngine`** — unblocks unit-level timer tests and eliminates the duplicated view-side pattern in inline and execution modes.
+2. **Decide and execute equipment source-of-truth** — either drop `Checklist.requiredEquipment: [String]` or document the split formally and have `EditableChecklist.save` sync both sides.
+3. **Detail-pane CTA + remaining accessibility labels** — small, visible polish for first-run and VoiceOver users.
+4. **Real `CloudKitSharingService`** — persistence of share state, participant handling, accept-share flow. Larger product work.
+5. **UI/integration test harness** — set up an XCUITest target driving a scripted procedure run.

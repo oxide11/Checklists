@@ -18,6 +18,7 @@ struct ChecklistDetailView: View {
     @State private var showApproval = false
     @State private var showShareSheet = false
     @State private var showShareError = false
+    @State private var statusSaveError: String? = nil
     @State private var preparationCompleted = false
     @State private var showChangeLog = false
     @State private var showIssues = false
@@ -65,7 +66,7 @@ struct ChecklistDetailView: View {
 
             // MARK: Approval Actions (shown only when relevant)
             if checklist.safeRoles.contains(where: { $0.userRole == .approver }) {
-                if checklist.procedureStatus == .draft || checklist.procedureStatus == .rejected {
+                if checklist.status == .draft || checklist.status == .rejected {
                     Section {
                         Button {
                             submitForReview()
@@ -76,7 +77,7 @@ struct ChecklistDetailView: View {
                     }
                 }
 
-                if checklist.procedureStatus == .pendingReview {
+                if checklist.status == .pendingReview {
                     Section {
                         Button {
                             showApproval = true
@@ -279,10 +280,10 @@ struct ChecklistDetailView: View {
             }
             ToolbarItem(placement: .secondaryAction) {
                 Label(
-                    "Status: \(checklist.procedureStatus.displayName)",
-                    systemImage: checklist.procedureStatus.systemImage
+                    "Status: \(checklist.status.displayName)",
+                    systemImage: checklist.status.systemImage
                 )
-                .foregroundStyle(checklist.procedureStatus.color)
+                .foregroundStyle(checklist.status.color)
             }
             ToolbarItem(placement: .secondaryAction) {
                 Menu {
@@ -312,7 +313,7 @@ struct ChecklistDetailView: View {
             }
             ToolbarItem(placement: .secondaryAction) {
                 Button {
-                    Task {
+                    Task { @MainActor in
                         let available = await CloudKitSharingService.shared.checkAccountStatus()
                         if available {
                             showShareSheet = true
@@ -388,6 +389,14 @@ struct ChecklistDetailView: View {
         } message: {
             Text(exportErrorMessage ?? "The procedure could not be exported. Please try again or choose a different format.")
         }
+        .alert(
+            "Couldn\u{2019}t Save Status Change",
+            isPresented: Binding(get: { statusSaveError != nil }, set: { if !$0 { statusSaveError = nil } })
+        ) {
+            Button("OK", role: .cancel) { statusSaveError = nil }
+        } message: {
+            Text(statusSaveError ?? "")
+        }
         .sheet(isPresented: $showChangeLog) {
             NavigationStack {
                 ChangeLogView(checklist: checklist)
@@ -454,7 +463,8 @@ struct ChecklistDetailView: View {
     }
 
     private func submitForReview() {
-        checklist.procedureStatus = .pendingReview
+        let previousStatus = checklist.status
+        checklist.status = .pendingReview
 
         let logEntry = ChangeLogEntry(
             changeType: .submitted,
@@ -464,6 +474,15 @@ struct ChecklistDetailView: View {
         )
         logEntry.checklist = checklist
         modelContext.insert(logEntry)
+
+        do {
+            try modelContext.save()
+        } catch {
+            // Roll back the in-memory mutation so the UI reflects reality.
+            checklist.status = previousStatus
+            modelContext.delete(logEntry)
+            statusSaveError = error.localizedDescription
+        }
     }
 
     // MARK: - Timer (Inline Mode)

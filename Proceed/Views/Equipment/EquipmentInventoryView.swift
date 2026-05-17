@@ -28,11 +28,18 @@ struct EquipmentInventoryView: View {
     var body: some View {
         List {
             if equipment.isEmpty {
-                ContentUnavailableView(
-                    "No Equipment",
-                    systemImage: "wrench.and.screwdriver",
-                    description: Text("Add tools and equipment to track storage locations and link to procedures.")
-                )
+                ContentUnavailableView {
+                    Label("No Equipment", systemImage: "wrench.and.screwdriver")
+                } description: {
+                    Text("Add tools and equipment to track storage locations and link to procedures.")
+                } actions: {
+                    Button {
+                        showEditor = true
+                    } label: {
+                        Label("Add Equipment", systemImage: "plus.circle.fill")
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
             } else {
                 ForEach(groupedEquipment, id: \.0) { category, items in
                     Section(category) {

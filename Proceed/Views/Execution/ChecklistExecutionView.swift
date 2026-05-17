@@ -29,6 +29,10 @@ struct ChecklistExecutionView: View {
             VStack(spacing: 0) {
                 progressBar
 
+                if engine.sourceHasChanged {
+                    sourceChangedBanner
+                }
+
                 ScrollViewReader { proxy in
                     List {
 
@@ -151,6 +155,34 @@ struct ChecklistExecutionView: View {
         .nightVisionAware()
     }
 
+    // MARK: - Source-Changed Banner
+
+    private var sourceChangedBanner: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(.orange)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Procedure updated")
+                    .font(.subheadline.weight(.semibold))
+                Text("This procedure was edited since you started. Restart to use the latest version.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 8)
+            Button("Restart") {
+                stopTimer()
+                withAnimation { engine.adoptLatestSource() }
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.small)
+        }
+        .padding(.horizontal)
+        .padding(.vertical, 10)
+        .background(Color.orange.opacity(0.12))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Procedure updated. This procedure was edited since you started. Restart button available.")
+    }
+
     // MARK: - Progress Bar
 
     private var progressBar: some View {
@@ -185,6 +217,7 @@ struct ChecklistExecutionView: View {
             Image(systemName: "checkmark.seal.fill")
                 .font(.system(size: 48))
                 .foregroundStyle(.green)
+                .accessibilityHidden(true)
             Text("Procedure Complete")
                 .font(.title2.weight(.bold))
             Text("All \(engine.visibleSteps.count) steps executed successfully.")
@@ -259,6 +292,13 @@ struct ChecklistExecutionView: View {
                 try? await Task.sleep(for: .seconds(1.5))
                 guard !Task.isCancelled else { return }
                 await MainActor.run {
+                    // Only advance if the user is still on this step — they may have
+                    // already completed it manually or navigated away during the
+                    // banner delay.
+                    guard engine.currentStepID == step.id else {
+                        showAutoAdvanceBanner = false
+                        return
+                    }
                     withAnimation {
                         showAutoAdvanceBanner = false
                         stopTimer()

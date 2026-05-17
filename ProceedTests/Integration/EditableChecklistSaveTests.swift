@@ -209,7 +209,7 @@ struct EditableChecklistUpdateTests {
         let context = container.mainContext
 
         let existing = Checklist(title: "Test")
-        existing.status = ProcedureStatus.published.rawValue
+        existing.status = .published
         context.insert(existing)
 
         let role = ProcedureRole(userIdentifier: "user1", displayName: "Approver", role: .approver)
@@ -221,7 +221,7 @@ struct EditableChecklistUpdateTests {
         ec.steps = [EditableStep()]
         try ec.save(to: context, updating: existing)
 
-        #expect(existing.status == ProcedureStatus.draft.rawValue)
+        #expect(existing.status == .draft)
     }
 
     @Test("Does NOT change status without approver")
@@ -230,7 +230,7 @@ struct EditableChecklistUpdateTests {
         let context = container.mainContext
 
         let existing = Checklist(title: "Test")
-        existing.status = ProcedureStatus.published.rawValue
+        existing.status = .published
         context.insert(existing)
         existing.roles = []
 
@@ -238,7 +238,7 @@ struct EditableChecklistUpdateTests {
         ec.steps = [EditableStep()]
         try ec.save(to: context, updating: existing)
 
-        #expect(existing.status == ProcedureStatus.published.rawValue)
+        #expect(existing.status == .published)
     }
 
     @Test("Creates ChangeLogEntry with field changes")
@@ -281,5 +281,60 @@ struct EditableChecklistUpdateTests {
             .filter { $0.checklist?.id == existing.id }
         #expect(steps.count == 1)
         #expect(steps[0].id == specificID)
+    }
+
+    @Test("Editing one step's text reuses the same ChecklistStep instance")
+    func partialUpdateReusesInstances() throws {
+        let container = try makeTestContainer()
+        let context = container.mainContext
+
+        let existing = Checklist(title: "Test")
+        context.insert(existing)
+        let s1 = ChecklistStep(stepType: .action, text: "One", orderIndex: 0)
+        let s2 = ChecklistStep(stepType: .action, text: "Two", orderIndex: 1)
+        s1.checklist = existing; s2.checklist = existing
+        context.insert(s1); context.insert(s2)
+        existing.steps = [s1, s2]
+        try context.save()
+
+        let s1OriginalObjectID = ObjectIdentifier(s1)
+
+        var ec = EditableChecklist(from: existing)
+        ec.steps[0].text = "One (edited)"
+        try ec.save(to: context, updating: existing)
+
+        let stored = try context.fetch(FetchDescriptor<ChecklistStep>())
+            .filter { $0.checklist?.id == existing.id }
+            .sorted { $0.orderIndex < $1.orderIndex }
+        #expect(stored.count == 2)
+        #expect(stored[0].text == "One (edited)")
+        #expect(stored[1].text == "Two")
+        // The mutated step is the SAME instance as before — confirms we didn't
+        // delete-and-recreate, which would have produced a different object.
+        #expect(ObjectIdentifier(stored[0]) == s1OriginalObjectID)
+    }
+
+    @Test("Removing a step from the editable list deletes that step")
+    func partialUpdateDeletesRemovedSteps() throws {
+        let container = try makeTestContainer()
+        let context = container.mainContext
+
+        let existing = Checklist(title: "Test")
+        context.insert(existing)
+        let s1 = ChecklistStep(stepType: .action, text: "Keep", orderIndex: 0)
+        let s2 = ChecklistStep(stepType: .action, text: "Drop", orderIndex: 1)
+        s1.checklist = existing; s2.checklist = existing
+        context.insert(s1); context.insert(s2)
+        existing.steps = [s1, s2]
+        try context.save()
+
+        var ec = EditableChecklist(from: existing)
+        ec.steps.removeAll { $0.text == "Drop" }
+        try ec.save(to: context, updating: existing)
+
+        let stored = try context.fetch(FetchDescriptor<ChecklistStep>())
+            .filter { $0.checklist?.id == existing.id }
+        #expect(stored.count == 1)
+        #expect(stored[0].text == "Keep")
     }
 }
