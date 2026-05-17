@@ -51,7 +51,7 @@ struct EquipmentInventoryView: View {
                             }
                         }
                         .onDelete { offsets in
-                            pendingDelete = offsets.map { items[$0] }
+                            pendingDelete = offsets.compactMap { items.indices.contains($0) ? items[$0] : nil }
                         }
                     }
                 }

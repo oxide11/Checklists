@@ -31,7 +31,7 @@ struct FolderManagerView: View {
                 }
             }
             .onDelete { offsets in
-                pendingDelete = offsets.map { folders[$0] }
+                pendingDelete = offsets.compactMap { folders.indices.contains($0) ? folders[$0] : nil }
             }
 
             Button { showNewFolder = true } label: {

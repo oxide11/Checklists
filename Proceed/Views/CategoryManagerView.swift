@@ -41,7 +41,9 @@ struct CategoryManagerView: View {
                 }
             }
             .onDelete { offsets in
-                pendingDelete = offsets.map { categories[$0] }.filter { !$0.isDefault }
+                pendingDelete = offsets
+                    .compactMap { categories.indices.contains($0) ? categories[$0] : nil }
+                    .filter { !$0.isDefault }
             }
 
             Button { showNewCategory = true } label: {

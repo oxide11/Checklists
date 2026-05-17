@@ -23,7 +23,8 @@ struct IssueListView: View {
                     IssueRow(issue: issue)
                 }
                 .onDelete { offsets in
-                    pendingDelete = offsets.map { issues[$0] }
+                    let snapshot = issues
+                    pendingDelete = offsets.compactMap { snapshot.indices.contains($0) ? snapshot[$0] : nil }
                 }
             }
         }

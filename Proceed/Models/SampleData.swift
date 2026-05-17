@@ -226,7 +226,8 @@ struct SampleDataGenerator {
     // MARK: - Helpers
 
     private static func wireLinear(_ steps: [ChecklistStep]) {
-        for i in 0..<steps.count - 1 {
+        guard steps.count > 1 else { return }
+        for i in 0..<(steps.count - 1) {
             steps[i].nextStepID = steps[i + 1].id
         }
     }
