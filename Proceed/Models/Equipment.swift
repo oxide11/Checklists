@@ -11,7 +11,7 @@ final class Equipment {
     var lastInspectedDate: Date? = nil
     @Attribute(.externalStorage) var photoData: Data? = nil
 
-    @Relationship(inverse: \Checklist.requiredEquipmentItems)
+    @Relationship(deleteRule: .nullify, inverse: \Checklist.requiredEquipmentItems)
     var checklists: [Checklist]? = []
 
     init(

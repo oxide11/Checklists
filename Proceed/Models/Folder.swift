@@ -8,7 +8,7 @@ final class Folder {
     var systemImage: String = "folder.fill"
     var sortOrder: Int = 0
 
-    @Relationship(inverse: \Checklist.folder)
+    @Relationship(deleteRule: .nullify, inverse: \Checklist.folder)
     var checklists: [Checklist]? = []
 
     var safeChecklists: [Checklist] { checklists ?? [] }
