@@ -15,6 +15,7 @@ struct ChecklistDetailView: View {
     @State private var showExportShare = false
     @State private var exportFileURL: URL? = nil
     @State private var showExportError = false
+    @State private var exportErrorMessage: String? = nil
     @State private var showApproval = false
     @State private var showShareSheet = false
     @State private var showShareError = false
@@ -363,7 +364,7 @@ struct ChecklistDetailView: View {
         .alert("Export Failed", isPresented: $showExportError) {
             Button("OK", role: .cancel) {}
         } message: {
-            Text("The procedure could not be exported. Please try again or choose a different format.")
+            Text(exportErrorMessage ?? "The procedure could not be exported. Please try again or choose a different format.")
         }
         .sheet(isPresented: $showChangeLog) {
             NavigationStack {
@@ -414,16 +415,14 @@ struct ChecklistDetailView: View {
                 try content.write(to: url, atomically: true, encoding: .utf8)
                 exportFileURL = url
             case .pdf:
-                guard let data = ExportService.exportPDF(checklist: checklist) else {
-                    showExportError = true
-                    return
-                }
+                let data = try ExportService.exportPDF(checklist: checklist)
                 let url = tempDir.appendingPathComponent("\(safeName).pdf")
                 try data.write(to: url)
                 exportFileURL = url
             }
             showExportShare = true
         } catch {
+            exportErrorMessage = error.localizedDescription
             showExportError = true
         }
     }

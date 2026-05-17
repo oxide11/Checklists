@@ -3,6 +3,20 @@ import Foundation
 import UIKit
 #endif
 
+enum ExportError: LocalizedError {
+    case pdfGenerationFailed
+    case pdfRenderedEmpty
+
+    var errorDescription: String? {
+        switch self {
+        case .pdfGenerationFailed:
+            return "The PDF context could not be created."
+        case .pdfRenderedEmpty:
+            return "The PDF renderer produced no pages."
+        }
+    }
+}
+
 struct ExportService {
 
     // MARK: - Markdown
@@ -192,7 +206,7 @@ struct ExportService {
     // MARK: - PDF
 
     #if canImport(UIKit)
-    static func exportPDF(checklist: Checklist) -> Data? {
+    static func exportPDF(checklist: Checklist) throws -> Data {
         let htmlString = exportHTML(checklist: checklist)
         let formatter = UIMarkupTextPrintFormatter(markupText: htmlString)
 
@@ -212,14 +226,20 @@ struct ExportService {
 
         let pdfData = NSMutableData()
         UIGraphicsBeginPDFContextToData(pdfData, paperRect, nil)
+        defer { UIGraphicsEndPDFContext() }
+
+        guard renderer.numberOfPages > 0 else {
+            throw ExportError.pdfRenderedEmpty
+        }
 
         for page in 0..<renderer.numberOfPages {
             UIGraphicsBeginPDFPage()
             renderer.drawPage(at: page, in: UIGraphicsGetPDFContextBounds())
         }
 
-        UIGraphicsEndPDFContext()
-        return pdfData as Data
+        let output = pdfData as Data
+        guard !output.isEmpty else { throw ExportError.pdfGenerationFailed }
+        return output
     }
     #endif
 

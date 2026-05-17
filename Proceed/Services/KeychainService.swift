@@ -28,17 +28,22 @@ final class KeychainService: Sendable {
             throw KeychainError.encodingFailed
         }
 
-        let query: [String: Any] = [
+        // Lookup query (without value or accessibility) for the delete pass —
+        // accessibility class is not part of the primary key.
+        let lookupQuery: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: serviceName,
-            kSecAttrAccount as String: key,
-            kSecValueData as String: data
+            kSecAttrAccount as String: key
         ]
+        SecItemDelete(lookupQuery as CFDictionary)
 
-        // Remove any existing entry first
-        SecItemDelete(query as CFDictionary)
+        var addQuery = lookupQuery
+        addQuery[kSecValueData as String] = data
+        // Keep secrets device-local and require first unlock — survives reboot
+        // for background sync but never syncs to other devices via iCloud Keychain.
+        addQuery[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
 
-        let status = SecItemAdd(query as CFDictionary, nil)
+        let status = SecItemAdd(addQuery as CFDictionary, nil)
         guard status == errSecSuccess else {
             throw KeychainError.saveFailed(status)
         }
