@@ -10,6 +10,7 @@ final class ProcedureCategory {
     var isDefault: Bool = false
     var emoji: String? = nil
 
+    @Relationship(deleteRule: .nullify)
     var checklists: [Checklist]? = []
 
     init(

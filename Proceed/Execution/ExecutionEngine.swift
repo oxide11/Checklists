@@ -59,12 +59,11 @@ final class ExecutionEngine {
     // MARK: - Actions
 
     /// Complete an action, warning, or caution step — advances to the next linear step.
+    /// Decision steps must be resolved via `selectBranch` and are rejected here.
     func completeStep(_ stepID: UUID) {
-        guard let step = stepsByID[stepID] else { return }
+        guard let step = stepsByID[stepID], step.stepType != .decision else { return }
         completedStepIDs.insert(stepID)
-        if step.stepType != .decision {
-            advanceFrom(step: step, selectedTargetID: nil)
-        }
+        advanceFrom(step: step, selectedTargetID: nil)
     }
 
     /// Select a branch on a decision step — advances to the branch target.

@@ -169,16 +169,16 @@ struct ExecutionEngineBranchingTests {
         #expect(!visibleTexts.contains("Skipped"))
     }
 
-    @Test("completeStep on decision does NOT auto-advance")
-    func decisionCompleteNoAutoAdvance() {
+    @Test("completeStep on decision is rejected — must use selectBranch")
+    func decisionCompleteRejected() {
         let step1 = makeDecisionStep(text: "Choose")
         let step2 = makeActionStep(text: "Next")
         let checklist = makeChecklist(steps: [step1, step2])
         let engine = ExecutionEngine(checklist: checklist)
 
         engine.completeStep(step1.id)
-        // Decision step was marked completed but should not advance
-        #expect(engine.completedStepIDs.contains(step1.id))
+        // Decision step must be resolved via selectBranch; completeStep is a no-op
+        #expect(!engine.completedStepIDs.contains(step1.id))
         #expect(engine.currentStepID == step1.id)
     }
 
@@ -252,5 +252,28 @@ struct ExecutionEngineResetTests {
         engine.reset()
         #expect(engine.currentStepID == nil)
         #expect(engine.completedStepIDs.isEmpty)
+    }
+}
+
+// MARK: - Decision Gating
+
+@Suite("ExecutionEngine Decision Gating")
+@MainActor
+struct ExecutionEngineDecisionGatingTests {
+
+    @Test("Decision is still resolvable via selectBranch after a completeStep attempt")
+    func decisionStillResolvableAfterCompleteAttempt() {
+        let target = makeActionStep(text: "Target")
+        let decision = makeDecisionStep(
+            text: "Pick",
+            branchOptions: [BranchOption(label: "Go", targetStepID: target.id)]
+        )
+        let checklist = makeChecklist(steps: [decision, target])
+        let engine = ExecutionEngine(checklist: checklist)
+
+        engine.completeStep(decision.id)  // rejected
+        engine.selectBranch(on: decision.id, targetStepID: target.id)
+        #expect(engine.currentStepID == target.id)
+        #expect(engine.completedStepIDs.contains(decision.id))
     }
 }

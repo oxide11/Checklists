@@ -12,6 +12,7 @@ func makeTestContainer() throws -> ModelContainer {
         for: Checklist.self, ChecklistStep.self, MediaAttachment.self,
              ProcedureCategory.self, Folder.self, Equipment.self,
              ChangeLogEntry.self, IssueReport.self, ProcedureRole.self,
+             Workflow.self,
         configurations: config
     )
 }

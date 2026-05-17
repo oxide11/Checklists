@@ -4,7 +4,6 @@ import SwiftData
 struct ChecklistDetailView: View {
     let checklist: Checklist
     @Query(sort: \Equipment.name) private var allEquipment: [Equipment]
-    @Query(sort: \Checklist.title) private var allChecklists: [Checklist]
     @Environment(\.modelContext) private var modelContext
     @State private var showEditor = false
     @State private var showExecution = false
@@ -15,6 +14,7 @@ struct ChecklistDetailView: View {
     @State private var showExportShare = false
     @State private var exportFileURL: URL? = nil
     @State private var showExportError = false
+    @State private var exportErrorMessage: String? = nil
     @State private var showApproval = false
     @State private var showShareSheet = false
     @State private var showShareError = false
@@ -163,13 +163,11 @@ struct ChecklistDetailView: View {
                             .foregroundStyle(.secondary)
 
                         // Workflow context
-                        if let workflowID = checklist.workflowID {
-                            let siblings = allChecklists
-                                .filter { $0.workflowID == workflowID }
-                                .sorted { $0.workflowOrder < $1.workflowOrder }
+                        if let workflow = checklist.workflow {
+                            let siblings = workflow.orderedProcedures
                             let position = (siblings.firstIndex(where: { $0.id == checklist.id }) ?? 0) + 1
 
-                            Text("Procedure \(position) of \(siblings.count) in \(checklist.workflowName ?? "Workflow")")
+                            Text("Procedure \(position) of \(siblings.count) in \(workflow.name)")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                                 .padding(.top, 4)
@@ -363,7 +361,7 @@ struct ChecklistDetailView: View {
         .alert("Export Failed", isPresented: $showExportError) {
             Button("OK", role: .cancel) {}
         } message: {
-            Text("The procedure could not be exported. Please try again or choose a different format.")
+            Text(exportErrorMessage ?? "The procedure could not be exported. Please try again or choose a different format.")
         }
         .sheet(isPresented: $showChangeLog) {
             NavigationStack {
@@ -414,16 +412,14 @@ struct ChecklistDetailView: View {
                 try content.write(to: url, atomically: true, encoding: .utf8)
                 exportFileURL = url
             case .pdf:
-                guard let data = ExportService.exportPDF(checklist: checklist) else {
-                    showExportError = true
-                    return
-                }
+                let data = try ExportService.exportPDF(checklist: checklist)
                 let url = tempDir.appendingPathComponent("\(safeName).pdf")
                 try data.write(to: url)
                 exportFileURL = url
             }
             showExportShare = true
         } catch {
+            exportErrorMessage = error.localizedDescription
             showExportError = true
         }
     }

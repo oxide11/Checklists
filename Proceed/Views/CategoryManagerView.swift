@@ -8,6 +8,7 @@ struct CategoryManagerView: View {
     @State private var newName = ""
     @State private var newIcon = "folder.fill"
     @State private var newEmoji = ""
+    @State private var pendingDelete: [ProcedureCategory] = []
 
     private let iconOptions = [
         "folder.fill", "airplane", "leaf.fill", "car.fill", "hammer.fill",
@@ -40,11 +41,7 @@ struct CategoryManagerView: View {
                 }
             }
             .onDelete { offsets in
-                for i in offsets {
-                    let cat = categories[i]
-                    guard !cat.isDefault else { continue }
-                    modelContext.delete(cat)
-                }
+                pendingDelete = offsets.map { categories[$0] }.filter { !$0.isDefault }
             }
 
             Button { showNewCategory = true } label: {
@@ -79,5 +76,24 @@ struct CategoryManagerView: View {
         } message: {
             Text("Enter a name and optional emoji for the new category.")
         }
+        .confirmationDialog(
+            deleteMessage,
+            isPresented: Binding(get: { !pendingDelete.isEmpty }, set: { if !$0 { pendingDelete = [] } }),
+            titleVisibility: .visible
+        ) {
+            Button("Delete", role: .destructive) {
+                for cat in pendingDelete { modelContext.delete(cat) }
+                pendingDelete = []
+            }
+            Button("Cancel", role: .cancel) { pendingDelete = [] }
+        } message: {
+            Text("Procedures in this category will become uncategorized. This cannot be undone.")
+        }
+    }
+
+    private var deleteMessage: String {
+        pendingDelete.count == 1
+            ? "Delete category \u{201C}\(pendingDelete[0].name)\u{201D}?"
+            : "Delete \(pendingDelete.count) categories?"
     }
 }

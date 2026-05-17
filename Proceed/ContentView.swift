@@ -5,6 +5,7 @@ struct ContentView: View {
     @Query(sort: \Checklist.title) private var checklists: [Checklist]
     @Query(sort: \ProcedureCategory.sortOrder) private var categories: [ProcedureCategory]
     @Query(sort: \Folder.sortOrder) private var folders: [Folder]
+    @Query(sort: \Workflow.name) private var allWorkflows: [Workflow]
     @Environment(\.modelContext) private var modelContext
     @State private var searchText = ""
     @State private var showSettings = false
@@ -45,19 +46,14 @@ struct ContentView: View {
         return result
     }
 
-    /// Workflows grouped by workflowID, sorted by first procedure's title
-    private var workflows: [(id: UUID, name: String, procedures: [Checklist])] {
-        let workflowChecklists = filteredChecklists.compactMap { checklist -> (UUID, Checklist)? in
-            guard let wid = checklist.workflowID else { return nil }
-            return (wid, checklist)
+    /// Workflows that contain at least one procedure matching the current search.
+    private var workflows: [(workflow: Workflow, procedures: [Checklist])] {
+        let filteredIDs = Set(filteredChecklists.map(\.id))
+        return allWorkflows.compactMap { wf in
+            let procedures = wf.orderedProcedures.filter { filteredIDs.contains($0.id) }
+            guard !procedures.isEmpty else { return nil }
+            return (workflow: wf, procedures: procedures)
         }
-        let grouped = Dictionary(grouping: workflowChecklists, by: \.0)
-        return grouped.map { (id, pairs) in
-            let procedures = pairs.map(\.1).sorted { $0.workflowOrder < $1.workflowOrder }
-            let name = procedures.first?.workflowName ?? "Workflow"
-            return (id: id, name: name, procedures: procedures)
-        }
-        .sorted { $0.name < $1.name }
     }
 
     /// Checklists within a specific folder, filtered by search
@@ -146,19 +142,15 @@ struct ContentView: View {
                 // Workflows section
                 if !workflows.isEmpty {
                     Section {
-                        ForEach(workflows, id: \.id) { workflow in
+                        ForEach(workflows, id: \.workflow.id) { entry in
                             NavigationLink {
-                                WorkflowDetailView(
-                                    workflowID: workflow.id,
-                                    workflowName: workflow.name,
-                                    procedures: workflow.procedures
-                                )
+                                WorkflowDetailView(workflow: entry.workflow)
                             } label: {
                                 Label {
                                     HStack {
-                                        Text(workflow.name)
+                                        Text(entry.workflow.name)
                                         Spacer()
-                                        Text("\(workflow.procedures.count)")
+                                        Text("\(entry.procedures.count)")
                                             .font(.caption)
                                             .foregroundStyle(.secondary)
                                     }

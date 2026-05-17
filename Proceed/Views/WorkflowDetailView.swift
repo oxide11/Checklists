@@ -1,11 +1,15 @@
 import SwiftUI
+import SwiftData
 
 struct WorkflowDetailView: View {
-    let workflowID: UUID
-    let workflowName: String
-    let procedures: [Checklist]
+    let workflow: Workflow
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
     @State private var showDissolveConfirmation = false
+
+    private var procedures: [Checklist] {
+        workflow.orderedProcedures
+    }
 
     var body: some View {
         List {
@@ -21,7 +25,6 @@ struct WorkflowDetailView: View {
                         ChecklistDetailView(checklist: procedure)
                     } label: {
                         HStack(spacing: 12) {
-                            // Numbered circle
                             ZStack {
                                 Circle()
                                     .fill(Color.accentColor.opacity(0.15))
@@ -64,7 +67,7 @@ struct WorkflowDetailView: View {
                 }
             }
         }
-        .navigationTitle(workflowName)
+        .navigationTitle(workflow.name)
         #if os(iOS)
         .navigationBarTitleDisplayMode(.large)
         #endif
@@ -74,9 +77,12 @@ struct WorkflowDetailView: View {
             titleVisibility: .visible
         ) {
             Button("Dissolve", role: .destructive) {
-                for procedure in procedures {
-                    procedure.removeFromWorkflow()
+                let captured = procedures
+                for procedure in captured {
+                    procedure.workflow = nil
+                    procedure.workflowOrder = 0
                 }
+                modelContext.delete(workflow)
                 dismiss()
             }
             Button("Cancel", role: .cancel) {}

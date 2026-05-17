@@ -4,6 +4,7 @@ import SwiftData
 struct IssueListView: View {
     let checklist: Checklist
     @Environment(\.modelContext) private var modelContext
+    @State private var pendingDelete: [IssueReport] = []
 
     private var issues: [IssueReport] {
         checklist.safeIssueReports.sorted { $0.timestamp > $1.timestamp }
@@ -22,10 +23,7 @@ struct IssueListView: View {
                     IssueRow(issue: issue)
                 }
                 .onDelete { offsets in
-                    let toDelete = offsets.map { issues[$0] }
-                    for item in toDelete {
-                        modelContext.delete(item)
-                    }
+                    pendingDelete = offsets.map { issues[$0] }
                 }
             }
         }
@@ -33,6 +31,19 @@ struct IssueListView: View {
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
+        .confirmationDialog(
+            pendingDelete.count == 1 ? "Delete this issue report?" : "Delete \(pendingDelete.count) reports?",
+            isPresented: Binding(get: { !pendingDelete.isEmpty }, set: { if !$0 { pendingDelete = [] } }),
+            titleVisibility: .visible
+        ) {
+            Button("Delete", role: .destructive) {
+                for item in pendingDelete { modelContext.delete(item) }
+                pendingDelete = []
+            }
+            Button("Cancel", role: .cancel) { pendingDelete = [] }
+        } message: {
+            Text("Deleted issue reports cannot be recovered.")
+        }
     }
 }
 

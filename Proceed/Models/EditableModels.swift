@@ -54,7 +54,8 @@ struct EditableChecklist {
     }
 
     /// Persists editable state to SwiftData. Pass `existing` to update; nil to create new.
-    mutating func save(to context: ModelContext, updating existing: Checklist? = nil) {
+    /// Throws if the underlying ModelContext save fails.
+    mutating func save(to context: ModelContext, updating existing: Checklist? = nil) throws {
         let previousVersion = existing?.versionNumber
         let isUpdate = existing != nil
         if isUpdate {
@@ -176,6 +177,8 @@ struct EditableChecklist {
         logEntry.fieldChanges = fieldChanges
         logEntry.checklist = checklist
         context.insert(logEntry)
+
+        try context.save()
     }
 }
 
