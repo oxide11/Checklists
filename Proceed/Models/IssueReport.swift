@@ -7,26 +7,14 @@ final class IssueReport {
     var timestamp: Date = Date()
     var issueDescription: String = ""
     var reason: String = ""
-    var severity: String = IssueSeverity.medium.rawValue
+    var severity: IssueSeverity = IssueSeverity.medium
     var stepID: UUID? = nil
     var stepText: String? = nil
     @Attribute(.externalStorage) var photoData: Data? = nil
-    var status: String = IssueStatus.open.rawValue
+    var status: IssueStatus = IssueStatus.open
     var authorName: String = ""
 
     var checklist: Checklist? = nil
-
-    /// Typed access to the issue status
-    var issueStatus: IssueStatus {
-        get { IssueStatus(rawValue: status) ?? .open }
-        set { status = newValue.rawValue }
-    }
-
-    /// Typed access to the issue severity
-    var issueSeverity: IssueSeverity {
-        get { IssueSeverity(rawValue: severity) ?? .medium }
-        set { severity = newValue.rawValue }
-    }
 
     init(
         issueDescription: String = "",
@@ -40,7 +28,7 @@ final class IssueReport {
         self.timestamp = Date()
         self.issueDescription = issueDescription
         self.reason = reason
-        self.severity = severity.rawValue
+        self.severity = severity
         self.stepID = stepID
         self.stepText = stepText
         self.authorName = authorName.isEmpty ? ChangeLogEntry.deviceName : authorName

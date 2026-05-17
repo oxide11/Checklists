@@ -74,34 +74,34 @@ struct IssueRow: View {
                 Spacer()
 
                 Menu {
-                    if issue.issueStatus == .open {
+                    if issue.status == .open {
                         Button {
-                            issue.issueStatus = .acknowledged
+                            issue.status = .acknowledged
                         } label: {
                             Label("Acknowledge", systemImage: "eye")
                         }
                     }
-                    if issue.issueStatus != .resolved {
+                    if issue.status != .resolved {
                         Button {
-                            issue.issueStatus = .resolved
+                            issue.status = .resolved
                         } label: {
                             Label("Mark Resolved", systemImage: "checkmark.circle")
                         }
                     }
-                    if issue.issueStatus == .resolved {
+                    if issue.status == .resolved {
                         Button {
-                            issue.issueStatus = .open
+                            issue.status = .open
                         } label: {
                             Label("Reopen", systemImage: "arrow.uturn.backward")
                         }
                     }
                 } label: {
-                    Text(issue.issueStatus.displayName)
+                    Text(issue.status.displayName)
                         .font(.caption.weight(.medium))
                         .padding(.horizontal, 8)
                         .padding(.vertical, 3)
-                        .background(issue.issueStatus.color.opacity(0.15), in: Capsule())
-                        .foregroundStyle(issue.issueStatus.color)
+                        .background(issue.status.color.opacity(0.15), in: Capsule())
+                        .foregroundStyle(issue.status.color)
                 }
             }
 
@@ -137,10 +137,10 @@ struct IssueRow: View {
     }
 
     private var severityIcon: String {
-        issue.issueSeverity.filledSystemImage
+        issue.severity.filledSystemImage
     }
 
     private var severityColor: Color {
-        issue.issueSeverity.color
+        issue.severity.color
     }
 }

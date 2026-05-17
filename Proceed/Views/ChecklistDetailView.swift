@@ -263,7 +263,7 @@ struct ChecklistDetailView: View {
             }
             ToolbarItem(placement: .secondaryAction) {
                 Button { showIssues = true } label: {
-                    let openCount = checklist.safeIssueReports.filter { $0.issueStatus == .open }.count
+                    let openCount = checklist.safeIssueReports.filter { $0.status == .open }.count
                     if openCount > 0 {
                         Label("Reported Issues (\(openCount) open)", systemImage: "exclamationmark.bubble")
                     } else {
