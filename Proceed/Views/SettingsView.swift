@@ -22,10 +22,12 @@ struct SettingsView: View {
                 Toggle(isOn: $nightVisionEnabled) {
                     Label("Night Vision Mode", systemImage: "moon.fill")
                 }
+                .accessibilityHint("Switches the app to a red-on-black palette for low-light use")
 
                 Toggle(isOn: $highlightCurrentStep) {
                     Label("Highlight Current Step", systemImage: "target")
                 }
+                .accessibilityHint("Adds a background tint behind the step you're currently on during execution")
             } header: {
                 Text("Display")
             } footer: {
@@ -38,14 +40,17 @@ struct SettingsView: View {
                 Toggle(isOn: $autoStartTimers) {
                     Label("Auto-Start Timers", systemImage: "timer")
                 }
+                .accessibilityHint("Starts a step's timer automatically when you reach it")
 
                 Toggle(isOn: $autoAdvanceOnTimerEnd) {
                     Label("Auto-Advance After Timer", systemImage: "forward.fill")
                 }
+                .accessibilityHint("Moves to the next step automatically when a timer reaches zero")
 
                 Toggle(isOn: $progressiveDisclosure) {
                     Label("Progressive Disclosure", systemImage: "eye.slash")
                 }
+                .accessibilityHint("Hides details of upcoming steps so only the current step is fully visible")
             } header: {
                 Text("Execution")
             } footer: {

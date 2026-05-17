@@ -185,6 +185,7 @@ struct ChecklistExecutionView: View {
             Image(systemName: "checkmark.seal.fill")
                 .font(.system(size: 48))
                 .foregroundStyle(.green)
+                .accessibilityHidden(true)
             Text("Procedure Complete")
                 .font(.title2.weight(.bold))
             Text("All \(engine.visibleSteps.count) steps executed successfully.")
