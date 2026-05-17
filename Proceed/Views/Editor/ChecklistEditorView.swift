@@ -9,6 +9,7 @@ struct ChecklistEditorView: View {
 
     let existingChecklist: Checklist?
     @State private var editable: EditableChecklist
+    @State private var saveError: String? = nil
 
     init(checklist: Checklist? = nil) {
         self.existingChecklist = checklist
@@ -34,12 +35,24 @@ struct ChecklistEditorView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
-                        editable.save(to: modelContext, updating: existingChecklist)
-                        dismiss()
+                        do {
+                            try editable.save(to: modelContext, updating: existingChecklist)
+                            dismiss()
+                        } catch {
+                            saveError = error.localizedDescription
+                        }
                     }
                     .fontWeight(.semibold)
                     .disabled(!editable.isValid)
                 }
+            }
+            .alert(
+                "Couldn\u{2019}t Save Procedure",
+                isPresented: Binding(get: { saveError != nil }, set: { if !$0 { saveError = nil } })
+            ) {
+                Button("OK", role: .cancel) { saveError = nil }
+            } message: {
+                Text(saveError ?? "")
             }
         }
     }

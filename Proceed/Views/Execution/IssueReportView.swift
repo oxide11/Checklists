@@ -14,6 +14,7 @@ struct IssueReportView: View {
     @State private var photoData: Data? = nil
     @State private var selectedPhotoItem: PhotosPickerItem? = nil
     @State private var showFileSizeAlert = false
+    @State private var submitError: String? = nil
 
     private static let maxPhotoSize = 25_000_000 // 25 MB
 
@@ -96,8 +97,12 @@ struct IssueReportView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Submit") {
-                        submitIssue()
-                        dismiss()
+                        do {
+                            try submitIssue()
+                            dismiss()
+                        } catch {
+                            submitError = error.localizedDescription
+                        }
                     }
                     .disabled(issueDescription.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
@@ -107,10 +112,18 @@ struct IssueReportView: View {
             } message: {
                 Text("The selected photo exceeds the 25 MB size limit. Please choose a smaller image.")
             }
+            .alert(
+                "Couldn\u{2019}t Submit Report",
+                isPresented: Binding(get: { submitError != nil }, set: { if !$0 { submitError = nil } })
+            ) {
+                Button("OK", role: .cancel) { submitError = nil }
+            } message: {
+                Text(submitError ?? "")
+            }
         }
     }
 
-    private func submitIssue() {
+    private func submitIssue() throws {
         let report = IssueReport(
             issueDescription: issueDescription.trimmingCharacters(in: .whitespaces),
             reason: reason.trimmingCharacters(in: .whitespaces),
@@ -121,5 +134,6 @@ struct IssueReportView: View {
         report.photoData = photoData
         report.checklist = checklist
         modelContext.insert(report)
+        try modelContext.save()
     }
 }

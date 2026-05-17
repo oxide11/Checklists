@@ -18,7 +18,7 @@ struct EditableChecklistCreateTests {
         ec.title = "New Procedure"
         ec.versionNumber = "v1.0"
         ec.steps = [EditableStep()]
-        ec.save(to: context, updating: nil)
+        try ec.save(to: context, updating: nil)
 
         let checklists = try context.fetch(FetchDescriptor<Checklist>())
         #expect(checklists.count == 1)
@@ -39,7 +39,7 @@ struct EditableChecklistCreateTests {
         var ec = EditableChecklist()
         ec.title = "Test"
         ec.steps = [step1, step2]
-        ec.save(to: context, updating: nil)
+        try ec.save(to: context, updating: nil)
 
         let steps = try context.fetch(FetchDescriptor<ChecklistStep>())
             .sorted { $0.orderIndex < $1.orderIndex }
@@ -65,7 +65,7 @@ struct EditableChecklistCreateTests {
         var ec = EditableChecklist()
         ec.title = "Test"
         ec.steps = [step1, step2, step3]
-        ec.save(to: context, updating: nil)
+        try ec.save(to: context, updating: nil)
 
         let steps = try context.fetch(FetchDescriptor<ChecklistStep>())
             .sorted { $0.orderIndex < $1.orderIndex }
@@ -83,7 +83,7 @@ struct EditableChecklistCreateTests {
         var ec = EditableChecklist()
         ec.title = "Test"
         ec.steps = [EditableStep()]
-        ec.save(to: context, updating: nil)
+        try ec.save(to: context, updating: nil)
 
         let entries = try context.fetch(FetchDescriptor<ChangeLogEntry>())
         #expect(entries.count == 1)
@@ -103,7 +103,7 @@ struct EditableChecklistCreateTests {
         ec.title = "Test"
         ec.steps = [EditableStep()]
         ec.categoryID = category.id
-        ec.save(to: context, updating: nil)
+        try ec.save(to: context, updating: nil)
 
         let checklists = try context.fetch(FetchDescriptor<Checklist>())
         #expect(checklists[0].category?.name == "Safety")
@@ -121,7 +121,7 @@ struct EditableChecklistCreateTests {
         ec.title = "Test"
         ec.steps = [EditableStep()]
         ec.folderID = folder.id
-        ec.save(to: context, updating: nil)
+        try ec.save(to: context, updating: nil)
 
         let checklists = try context.fetch(FetchDescriptor<Checklist>())
         #expect(checklists[0].folder?.name == "Operations")
@@ -136,7 +136,7 @@ struct EditableChecklistCreateTests {
         ec.title = "Test"
         ec.steps = [EditableStep()]
         ec.categoryID = nil
-        ec.save(to: context, updating: nil)
+        try ec.save(to: context, updating: nil)
 
         let checklists = try context.fetch(FetchDescriptor<Checklist>())
         #expect(checklists[0].category == nil)
@@ -151,7 +151,7 @@ struct EditableChecklistCreateTests {
         ec.title = "Test"
         ec.steps = [EditableStep()]
         ec.requiredEquipment = ["Wrench", "  ", "", "Hammer"]
-        ec.save(to: context, updating: nil)
+        try ec.save(to: context, updating: nil)
 
         let checklists = try context.fetch(FetchDescriptor<Checklist>())
         #expect(checklists[0].requiredEquipment == ["Wrench", "Hammer"])
@@ -174,7 +174,7 @@ struct EditableChecklistUpdateTests {
 
         var ec = EditableChecklist(from: existing)
         ec.steps = [EditableStep()]
-        ec.save(to: context, updating: existing)
+        try ec.save(to: context, updating: existing)
 
         #expect(existing.versionNumber == "v1.1")
     }
@@ -195,7 +195,7 @@ struct EditableChecklistUpdateTests {
         var newStep = EditableStep()
         newStep.text = "New step"
         ec.steps = [newStep]
-        ec.save(to: context, updating: existing)
+        try ec.save(to: context, updating: existing)
 
         let steps = try context.fetch(FetchDescriptor<ChecklistStep>())
             .filter { $0.checklist?.id == existing.id }
@@ -219,7 +219,7 @@ struct EditableChecklistUpdateTests {
 
         var ec = EditableChecklist(from: existing)
         ec.steps = [EditableStep()]
-        ec.save(to: context, updating: existing)
+        try ec.save(to: context, updating: existing)
 
         #expect(existing.status == ProcedureStatus.draft.rawValue)
     }
@@ -236,7 +236,7 @@ struct EditableChecklistUpdateTests {
 
         var ec = EditableChecklist(from: existing)
         ec.steps = [EditableStep()]
-        ec.save(to: context, updating: existing)
+        try ec.save(to: context, updating: existing)
 
         #expect(existing.status == ProcedureStatus.published.rawValue)
     }
@@ -252,7 +252,7 @@ struct EditableChecklistUpdateTests {
         var ec = EditableChecklist(from: existing)
         ec.title = "New Title"
         ec.steps = [EditableStep()]
-        ec.save(to: context, updating: existing)
+        try ec.save(to: context, updating: existing)
 
         let entries = try context.fetch(FetchDescriptor<ChangeLogEntry>())
         #expect(entries.count == 1)
@@ -275,7 +275,7 @@ struct EditableChecklistUpdateTests {
 
         var ec = EditableChecklist(from: existing)
         ec.steps = [editableStep]
-        ec.save(to: context, updating: existing)
+        try ec.save(to: context, updating: existing)
 
         let steps = try context.fetch(FetchDescriptor<ChecklistStep>())
             .filter { $0.checklist?.id == existing.id }
