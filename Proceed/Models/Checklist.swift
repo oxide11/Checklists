@@ -76,9 +76,16 @@ final class Checklist {
         return lastReviewedDate < cutoff || lastUpdatedDate < cutoff
     }
 
-    /// Ordered steps sorted by orderIndex.
+    /// Ordered steps sorted by orderIndex, with step id as a deterministic
+    /// tiebreaker so concurrent CloudKit edits that collide on orderIndex
+    /// don't produce a non-deterministic execution order.
     var orderedSteps: [ChecklistStep] {
-        safeSteps.sorted { $0.orderIndex < $1.orderIndex }
+        safeSteps.sorted { lhs, rhs in
+            if lhs.orderIndex != rhs.orderIndex {
+                return lhs.orderIndex < rhs.orderIndex
+            }
+            return lhs.id.uuidString < rhs.id.uuidString
+        }
     }
 
     init(

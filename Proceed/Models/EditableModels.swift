@@ -29,7 +29,30 @@ struct EditableChecklist {
     }
 
     var isValid: Bool {
-        !title.trimmingCharacters(in: .whitespaces).isEmpty && !steps.isEmpty
+        validationError == nil
+    }
+
+    /// Human-readable validation error for the Save button's disabled-state
+    /// tooltip / future inline display. Nil when the procedure is savable.
+    var validationError: String? {
+        if title.trimmingCharacters(in: .whitespaces).isEmpty {
+            return "Procedure needs a title"
+        }
+        if steps.isEmpty {
+            return "Add at least one step"
+        }
+        // Decision steps must have at least one branch with a target — otherwise
+        // the operator hits a dead end at runtime with no way to advance.
+        for (index, step) in steps.enumerated() where step.stepType == .decision {
+            let hasUsableBranch = step.branchOptions.contains { option in
+                option.targetStepID != nil
+                    && !option.label.trimmingCharacters(in: .whitespaces).isEmpty
+            }
+            if !hasUsableBranch {
+                return "Decision step \(index + 1) needs at least one labeled branch with a target"
+            }
+        }
+        return nil
     }
 
     /// Parses "vX.Y" and returns (major, minor). Defaults to (1, 0) if unparseable.
