@@ -7,6 +7,7 @@ struct EquipmentInventoryView: View {
     @State private var showEditor = false
     @State private var selectedEquipment: Equipment? = nil
     @State private var searchText = ""
+    @State private var pendingDelete: [Equipment] = []
 
     private var filteredEquipment: [Equipment] {
         guard !searchText.isEmpty else { return equipment }
@@ -43,7 +44,7 @@ struct EquipmentInventoryView: View {
                             }
                         }
                         .onDelete { offsets in
-                            for i in offsets { modelContext.delete(items[i]) }
+                            pendingDelete = offsets.map { items[$0] }
                         }
                     }
                 }
@@ -69,6 +70,25 @@ struct EquipmentInventoryView: View {
             EquipmentEditorView(equipment: item)
                 .nightVisionAware()
         }
+        .confirmationDialog(
+            deleteMessage,
+            isPresented: Binding(get: { !pendingDelete.isEmpty }, set: { if !$0 { pendingDelete = [] } }),
+            titleVisibility: .visible
+        ) {
+            Button("Delete", role: .destructive) {
+                for item in pendingDelete { modelContext.delete(item) }
+                pendingDelete = []
+            }
+            Button("Cancel", role: .cancel) { pendingDelete = [] }
+        } message: {
+            Text("Linked procedures will lose this equipment reference. This cannot be undone.")
+        }
+    }
+
+    private var deleteMessage: String {
+        pendingDelete.count == 1
+            ? "Delete \u{201C}\(pendingDelete[0].name)\u{201D}?"
+            : "Delete \(pendingDelete.count) items?"
     }
 }
 

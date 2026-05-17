@@ -6,6 +6,7 @@ struct FolderManagerView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var showNewFolder = false
     @State private var newName = ""
+    @State private var pendingDelete: [Folder] = []
 
     var body: some View {
         List {
@@ -30,9 +31,7 @@ struct FolderManagerView: View {
                 }
             }
             .onDelete { offsets in
-                for i in offsets {
-                    modelContext.delete(folders[i])
-                }
+                pendingDelete = offsets.map { folders[$0] }
             }
 
             Button { showNewFolder = true } label: {
@@ -58,5 +57,24 @@ struct FolderManagerView: View {
         } message: {
             Text("Enter a name for the new folder.")
         }
+        .confirmationDialog(
+            deleteMessage,
+            isPresented: Binding(get: { !pendingDelete.isEmpty }, set: { if !$0 { pendingDelete = [] } }),
+            titleVisibility: .visible
+        ) {
+            Button("Delete", role: .destructive) {
+                for folder in pendingDelete { modelContext.delete(folder) }
+                pendingDelete = []
+            }
+            Button("Cancel", role: .cancel) { pendingDelete = [] }
+        } message: {
+            Text("Procedures inside will become uncategorized. This cannot be undone.")
+        }
+    }
+
+    private var deleteMessage: String {
+        pendingDelete.count == 1
+            ? "Delete folder \u{201C}\(pendingDelete[0].name)\u{201D}?"
+            : "Delete \(pendingDelete.count) folders?"
     }
 }
