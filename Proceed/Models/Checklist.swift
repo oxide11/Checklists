@@ -11,7 +11,7 @@ final class Checklist {
     var createdDate: Date = Date()
     var sortOrder: Int = 0
     var isEmergency: Bool = false
-    var status: String = "published"  // draft, pendingReview, approved, rejected, published
+    var status: ProcedureStatus = ProcedureStatus.published
 
     // Relationships
     @Relationship(inverse: \ProcedureCategory.checklists)
@@ -66,11 +66,6 @@ final class Checklist {
         if !requiredEquipment.isEmpty { return true }
         if !safeEquipmentItems.isEmpty { return true }
         return false
-    }
-
-    var procedureStatus: ProcedureStatus {
-        get { ProcedureStatus(rawValue: status) ?? .published }
-        set { status = newValue.rawValue }
     }
 
     /// Returns true if the procedure hasn't been updated or reviewed in over 12 months.

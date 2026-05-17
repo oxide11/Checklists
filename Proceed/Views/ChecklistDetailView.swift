@@ -64,7 +64,7 @@ struct ChecklistDetailView: View {
 
             // MARK: Approval Actions (shown only when relevant)
             if checklist.safeRoles.contains(where: { $0.userRole == .approver }) {
-                if checklist.procedureStatus == .draft || checklist.procedureStatus == .rejected {
+                if checklist.status == .draft || checklist.status == .rejected {
                     Section {
                         Button {
                             submitForReview()
@@ -75,7 +75,7 @@ struct ChecklistDetailView: View {
                     }
                 }
 
-                if checklist.procedureStatus == .pendingReview {
+                if checklist.status == .pendingReview {
                     Section {
                         Button {
                             showApproval = true
@@ -278,10 +278,10 @@ struct ChecklistDetailView: View {
             }
             ToolbarItem(placement: .secondaryAction) {
                 Label(
-                    "Status: \(checklist.procedureStatus.displayName)",
-                    systemImage: checklist.procedureStatus.systemImage
+                    "Status: \(checklist.status.displayName)",
+                    systemImage: checklist.status.systemImage
                 )
-                .foregroundStyle(checklist.procedureStatus.color)
+                .foregroundStyle(checklist.status.color)
             }
             ToolbarItem(placement: .secondaryAction) {
                 Menu {
@@ -425,7 +425,7 @@ struct ChecklistDetailView: View {
     }
 
     private func submitForReview() {
-        checklist.procedureStatus = .pendingReview
+        checklist.status = .pendingReview
 
         let logEntry = ChangeLogEntry(
             changeType: .submitted,

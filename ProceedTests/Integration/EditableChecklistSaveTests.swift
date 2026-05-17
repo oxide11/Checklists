@@ -209,7 +209,7 @@ struct EditableChecklistUpdateTests {
         let context = container.mainContext
 
         let existing = Checklist(title: "Test")
-        existing.status = ProcedureStatus.published.rawValue
+        existing.status = .published
         context.insert(existing)
 
         let role = ProcedureRole(userIdentifier: "user1", displayName: "Approver", role: .approver)
@@ -221,7 +221,7 @@ struct EditableChecklistUpdateTests {
         ec.steps = [EditableStep()]
         try ec.save(to: context, updating: existing)
 
-        #expect(existing.status == ProcedureStatus.draft.rawValue)
+        #expect(existing.status == .draft)
     }
 
     @Test("Does NOT change status without approver")
@@ -230,7 +230,7 @@ struct EditableChecklistUpdateTests {
         let context = container.mainContext
 
         let existing = Checklist(title: "Test")
-        existing.status = ProcedureStatus.published.rawValue
+        existing.status = .published
         context.insert(existing)
         existing.roles = []
 
@@ -238,7 +238,7 @@ struct EditableChecklistUpdateTests {
         ec.steps = [EditableStep()]
         try ec.save(to: context, updating: existing)
 
-        #expect(existing.status == ProcedureStatus.published.rawValue)
+        #expect(existing.status == .published)
     }
 
     @Test("Creates ChangeLogEntry with field changes")

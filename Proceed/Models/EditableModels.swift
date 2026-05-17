@@ -159,7 +159,7 @@ struct EditableChecklist {
         if isUpdate {
             let hasApprovers = checklist.safeRoles.contains { $0.userRole == .approver }
             if hasApprovers {
-                checklist.status = ProcedureStatus.draft.rawValue
+                checklist.status = .draft
             }
         }
 

@@ -88,7 +88,7 @@ struct ApprovalView: View {
     }
 
     private func approve() {
-        checklist.procedureStatus = .published
+        checklist.status = .published
 
         let logEntry = ChangeLogEntry(
             changeType: .approved,
@@ -103,7 +103,7 @@ struct ApprovalView: View {
     }
 
     private func reject() {
-        checklist.procedureStatus = .rejected
+        checklist.status = .rejected
 
         let logEntry = ChangeLogEntry(
             changeType: .rejected,
