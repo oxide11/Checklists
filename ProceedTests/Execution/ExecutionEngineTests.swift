@@ -254,3 +254,26 @@ struct ExecutionEngineResetTests {
         #expect(engine.completedStepIDs.isEmpty)
     }
 }
+
+// MARK: - Decision Gating
+
+@Suite("ExecutionEngine Decision Gating")
+@MainActor
+struct ExecutionEngineDecisionGatingTests {
+
+    @Test("Decision is still resolvable via selectBranch after a completeStep attempt")
+    func decisionStillResolvableAfterCompleteAttempt() {
+        let target = makeActionStep(text: "Target")
+        let decision = makeDecisionStep(
+            text: "Pick",
+            branchOptions: [BranchOption(label: "Go", targetStepID: target.id)]
+        )
+        let checklist = makeChecklist(steps: [decision, target])
+        let engine = ExecutionEngine(checklist: checklist)
+
+        engine.completeStep(decision.id)  // rejected
+        engine.selectBranch(on: decision.id, targetStepID: target.id)
+        #expect(engine.currentStepID == target.id)
+        #expect(engine.completedStepIDs.contains(decision.id))
+    }
+}

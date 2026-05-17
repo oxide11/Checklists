@@ -240,3 +240,30 @@ struct ExportHTMLTests {
         #expect(html.contains("See manual"))
     }
 }
+
+// MARK: - PDF Export
+
+#if canImport(UIKit)
+@Suite("ExportService PDF")
+@MainActor
+struct ExportPDFTests {
+
+    @Test("PDF output is non-empty and starts with %PDF header")
+    func pdfHasHeader() throws {
+        let checklist = makeChecklist(title: "PDF Test", steps: [makeActionStep(text: "Do it")])
+        let data = try ExportService.exportPDF(checklist: checklist)
+        #expect(!data.isEmpty)
+        // PDF files always start with the magic bytes "%PDF"
+        let prefix = data.prefix(4)
+        #expect(prefix == Data([0x25, 0x50, 0x44, 0x46]))
+    }
+
+    @Test("PDF export of a multi-step checklist succeeds")
+    func pdfMultiStep() throws {
+        let steps = (1...10).map { makeActionStep(text: "Step \($0)") }
+        let checklist = makeChecklist(title: "Long", steps: steps)
+        let data = try ExportService.exportPDF(checklist: checklist)
+        #expect(data.count > 1000)  // Non-trivial output
+    }
+}
+#endif
