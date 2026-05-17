@@ -10,9 +10,5 @@
 	<string>Proceed uses the camera to capture photo evidence for issue reports and equipment records during procedures.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Proceed uses the microphone when you attach audio narration to procedure steps.</string>
-	<key>UIBackgroundModes</key>
-	<array>
-		<string>remote-notification</string>
-	</array>
 </dict>
 </plist>
