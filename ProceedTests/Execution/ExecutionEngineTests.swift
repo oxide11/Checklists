@@ -277,3 +277,53 @@ struct ExecutionEngineDecisionGatingTests {
         #expect(engine.completedStepIDs.contains(decision.id))
     }
 }
+
+// MARK: - Edge Cases
+
+@Suite("ExecutionEngine Edge Cases")
+@MainActor
+struct ExecutionEngineEdgeCaseTests {
+
+    @Test("Completing the same step twice does not advance past the next step")
+    func doubleCompleteIsIdempotent() {
+        let a = makeActionStep(text: "A")
+        let b = makeActionStep(text: "B")
+        let c = makeActionStep(text: "C")
+        let checklist = makeChecklist(steps: [a, b, c])
+        let engine = ExecutionEngine(checklist: checklist)
+
+        engine.completeStep(a.id)
+        engine.completeStep(a.id)  // re-issued — should not advance to C
+        #expect(engine.currentStepID == b.id)
+    }
+
+    @Test("Branch to a non-existent step yields no current step (frontier ends)")
+    func branchToMissingTargetEndsFrontier() {
+        let phantomID = UUID()
+        let decision = makeDecisionStep(
+            text: "Choose",
+            branchOptions: [BranchOption(label: "Nowhere", targetStepID: phantomID)]
+        )
+        let checklist = makeChecklist(steps: [decision])
+        let engine = ExecutionEngine(checklist: checklist)
+
+        engine.selectBranch(on: decision.id, targetStepID: phantomID)
+        #expect(engine.currentStepID == nil)
+        #expect(engine.completedStepIDs.contains(decision.id))
+    }
+
+    @Test("selectBranch on a non-decision step still records selection and advances")
+    func selectBranchOnActionStep() {
+        // Defensive behavior — UI shouldn't call selectBranch on actions, but engine
+        // shouldn't crash either. Document the actual behavior so we notice if it
+        // changes accidentally.
+        let target = makeActionStep(text: "Target")
+        let other = makeActionStep(text: "Other")
+        let checklist = makeChecklist(steps: [other, target])
+        let engine = ExecutionEngine(checklist: checklist)
+
+        engine.selectBranch(on: other.id, targetStepID: target.id)
+        #expect(engine.currentStepID == target.id)
+        #expect(engine.completedStepIDs.contains(other.id))
+    }
+}
