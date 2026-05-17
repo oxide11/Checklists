@@ -74,7 +74,7 @@ struct IssueReportView: View {
                         Label(photoData == nil ? "Attach Photo" : "Change Photo", systemImage: "camera.fill")
                     }
                     .onChange(of: selectedPhotoItem) { _, newItem in
-                        Task {
+                        Task { @MainActor in
                             if let data = try? await newItem?.loadTransferable(type: Data.self) {
                                 guard data.count <= Self.maxPhotoSize else {
                                     showFileSizeAlert = true

@@ -310,7 +310,7 @@ struct ChecklistDetailView: View {
             }
             ToolbarItem(placement: .secondaryAction) {
                 Button {
-                    Task {
+                    Task { @MainActor in
                         let available = await CloudKitSharingService.shared.checkAccountStatus()
                         if available {
                             showShareSheet = true

@@ -246,7 +246,7 @@ struct StepEditorView: View {
             }
             .onChange(of: selectedPhotoItem) { _, newItem in
                 guard let newItem else { return }
-                Task {
+                Task { @MainActor in
                     if let data = try? await newItem.loadTransferable(type: Data.self) {
                         guard data.count <= Self.maxPhotoSize else {
                             showFileSizeAlert = true
